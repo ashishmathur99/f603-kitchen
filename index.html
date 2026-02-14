@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F603 Kitchen AI Master</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React and ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        @media print {
+            .fixed, header, button { display: none !important; }
+            main { padding: 0 !important; }
+            .bg-white { border: none !important; }
+        }
+        /* Safelist for dynamic tailwind classes */
+        .bg-orange-100 { background-color: #ffedd5; }
+        .text-orange-600 { color: #ea580c; }
+        .bg-green-100 { background-color: #dcfce7; }
+        .text-green-600 { color: #16a34a; }
+        .bg-purple-100 { background-color: #f3e8ff; }
+        .text-purple-600 { color: #9333ea; }
+        .bg-blue-50 { background-color: #eff6ff; }
+        .text-blue-600 { color: #2563eb; }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-900">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useRef } = React;
+
+        // Custom Icon Component to handle Lucide CDN icons correctly
+        const Icon = ({ name, size = 24, className = "" }) => {
+            const iconRef = useRef(null);
+
+            useEffect(() => {
+                const render = () => {
+                    if (window.lucide && iconRef.current) {
+                        // Convert CamelCase to kebab-case (ChefHat -> chef-hat)
+                        const kebabName = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+                        iconRef.current.innerHTML = `<i data-lucide="${kebabName}"></i>`;
+                        window.lucide.createIcons({
+                            attrs: {
+                                width: size,
+                                height: size,
+                                'stroke-width': 2.5,
+                                class: className
+                            }
+                        });
+                    }
+                };
+
+                render();
+                // Fallback for late loading of CDN
+                const timer = setTimeout(render, 500);
+                return () => clearTimeout(timer);
+            }, [name, size, className]);
+
+            return <span ref={iconRef} className="inline-flex items-center justify-center" />;
+        };
+
+        const GLOBAL_RESOURCES = {
+            breakfast: [
+                { name: "Poha", hi: "पोहा", soft: true, yt: "ranveer+brar+poha" },
+                { name: "Oats Utthapam", hi: "ओट्स उत्तपम", soft: true, yt: "kunal+kapur+oats+uttapam" },
+                { name: "Moong Dal Cheela", hi: "मूंग दाल चीला", soft: true, yt: "moong+dal+chilla+recipe" },
+                { name: "Avocado Paratha", hi: "एवोकैडो पराठा", soft: false, yt: "avocado+paratha+healthy" },
+                { name: "Millet Idli", hi: "बाजरा इडली", soft: true, yt: "soft+idli+recipe" },
+                { name: "Quinoa Upma", hi: "क्विनोआ उपमा", soft: true, yt: "quinoa+upma+recipe" }
+            ],
+            veggies: [
+                { name: "Lauki Kofta", hi: "लौकी कोफ्ता", soft: true, yt: "lauki+kofta+recipe" },
+                { name: "Turai Masala", hi: "तोरई मसाला", soft: true, yt: "turai+sabzi+recipe" },
+                { name: "Stuffed Bhindi", hi: "भरवा भिंडी", soft: false, yt: "bhindi+masala+ranveer+brar" },
+                { name: "Baingan Bharta", hi: "बैंगन भरता", soft: true, yt: "baingan+bharta+recipe" },
+                { name: "Pumpkin Curry", hi: "कद्दू की सब्जी", soft: true, yt: "kaddu+ki+sabji" },
+                { name: "Matar Paneer", hi: "मटर पनीर", soft: true, yt: "matar+paneer+restaurant+style" }
+            ],
+            proteins: [
+                { name: "Paneer Tikka", hi: "पनीर टिक्का", soft: true, yt: "paneer+tikka+masala" },
+                { name: "Soya Keema", hi: "सोया कीमा", soft: true, yt: "soya+keema+recipe" },
+                { name: "Egg Curry", hi: "अंडा करी", soft: true, yt: "egg+curry+healthy" },
+                { name: "Dal Makhani", hi: "दाल मखनी", soft: true, yt: "dal+makhani+authentic" },
+                { name: "Chickpea Salad", hi: "काबुली चना सलाद", soft: false, yt: "chickpea+salad+indian" }
+            ],
+            snacks: [
+                { name: "Makhana Roast", hi: "मखाना", soft: true, yt: "roasted+makhana" },
+                { name: "Sprouts Chaat", hi: "स्प्राउट्स चाट", soft: false, yt: "healthy+sprouts+salad" },
+                { name: "Greek Yogurt Bowl", hi: "दही बाउल", soft: true, yt: "fruit+yogurt+bowl" }
+            ],
+            weekend: [
+                { name: "Pav Bhaji", hi: "पाव भाजी", soft: true, yt: "mumbai+pav+bhaji" },
+                { name: "Veg Burger", hi: "वेज बर्गर", soft: false, yt: "veg+burger+recipe" },
+                { name: "Paneer Kathi Roll", hi: "पनीर काठी रोल", soft: false, yt: "paneer+kathi+roll" },
+                { name: "Dal Baati", hi: "दाल बाटी", soft: false, yt: "dal+baati+churma" }
+            ]
+        };
+
+        const MealItem = ({ icon, color, label, name, sub, yt }) => {
+            // Explicitly define color classes to ensure Tailwind CDN picks them up
+            const colorMap = {
+                orange: { bg: 'bg-orange-100', text: 'text-orange-600' },
+                green: { bg: 'bg-green-100', text: 'text-green-600' },
+                purple: { bg: 'bg-purple-100', text: 'text-purple-600' },
+                blue: { bg: 'bg-blue-50', text: 'text-blue-600' }
+            };
+            const theme = colorMap[color] || colorMap.blue;
+
+            return (
+                <div className="p-5 flex justify-between items-center hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${theme.bg} ${theme.text}`}>
+                            <Icon name={icon} size={18} />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+                            <h4 className="font-black text-slate-800 tracking-tight">{name}</h4>
+                            {sub && <p className="text-[10px] font-bold text-blue-500 uppercase">{sub}</p>}
+                        </div>
+                    </div>
+                    <a href={yt} target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full flex items-center justify-center bg-red-50 text-red-600 hover:scale-110 transition-transform shadow-sm">
+                        <Icon name="Youtube" size={20} />
+                    </a>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [isSyncing, setIsSyncing] = useState(true);
+            const [inventory, setInventory] = useState([]);
+            const [masterMenu, setMasterMenu] = useState([]);
+            const [view, setView] = useState('plan');
+            const [cycle, setCycle] = useState('7d');
+            const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+
+            const syncGlobalResources = useCallback(async () => {
+                setIsSyncing(true);
+                // Simulate network latency for futuristic feel
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                const formattedInventory = Object.keys(GLOBAL_RESOURCES).map(key => ({
+                    id: key,
+                    title: key.charAt(0).toUpperCase() + key.slice(1),
+                    items: GLOBAL_RESOURCES[key].map(item => ({
+                        ...item,
+                        selected: true,
+                        yt: `https://www.youtube.com/results?search_query=${item.yt}`
+                    }))
+                }));
+                
+                setInventory(formattedInventory);
+                setIsSyncing(false);
+            }, []);
+
+            useEffect(() => {
+                const saved = localStorage.getItem('f603_live_cycle');
+                if (saved) {
+                    setMasterMenu(JSON.parse(saved));
+                    setView('live');
+                }
+                syncGlobalResources();
+            }, [syncGlobalResources]);
+
+            useEffect(() => {
+                if (masterMenu.length > 0) {
+                    localStorage.setItem('f603_live_cycle', JSON.stringify(masterMenu));
+                }
+            }, [masterMenu]);
+
+            const deployMenu = () => {
+                const days = parseInt(cycle);
+                const pools = inventory.reduce((acc, cat) => {
+                    acc[cat.id] = [...cat.items.filter(i => i.selected)].sort(() => Math.random() - 0.5);
+                    return acc;
+                }, {});
+
+                const getNext = (id, index) => {
+                    const p = pools[id];
+                    if (!p || p.length === 0) return { name: "N/A", hi: "N/A", yt: "#" };
+                    return p[index % p.length];
+                };
+
+                const newMenu = [];
+                const start = new Date(startDate);
+
+                for (let i = 0; i < days; i++) {
+                    const currentDate = new Date(start);
+                    currentDate.setDate(start.getDate() + i);
+                    const dayOfWeek = currentDate.getDay();
+                    const isWeekendMerge = (dayOfWeek === 5 || dayOfWeek === 6); // Fri or Sat
+
+                    newMenu.push({
+                        day: i + 1,
+                        date: currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                        weekDay: currentDate.toLocaleDateString('en-US', { weekday: 'long' }),
+                        isAshishEgg: [1, 3, 5].includes(dayOfWeek),
+                        isWeekendMerge,
+                        breakfast: getNext('breakfast', i),
+                        lunch: { 
+                            veg: getNext('veggies', i), 
+                            prot: getNext('proteins', i) 
+                        },
+                        snack: getNext('snacks', i),
+                        weekendSnack: getNext('weekend', i),
+                        dinner: { 
+                            veg: getNext('veggies', i + days)
+                        }
+                    });
+                }
+                setMasterMenu(newMenu);
+                setView('live');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+
+            const shareWhatsApp = () => {
+                let text = `*F603 KITCHEN MASTER PLAN*\n--------------------------\n`;
+                masterMenu.forEach(d => {
+                    text += `\n*${d.weekDay}, ${d.date}*\n`;
+                    text += `🌅 Brk: ${d.breakfast.name}${d.isAshishEgg ? ' (+Egg Omelette)' : ''}\n`;
+                    text += `☀️ Lun: ${d.lunch.veg.name} + ${d.lunch.prot.name}\n`;
+                    if (d.isWeekendMerge) {
+                        text += `🎉 Fun Special: ${d.weekendSnack.name} + ${d.dinner.veg.name}\n`;
+                    } else {
+                        text += `☕ Snk: ${d.snack.name}\n`;
+                        text += `🌙 Din: ${d.dinner.veg.name} (Subzi Only)\n`;
+                    }
+                });
+                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
+            };
+
+            const clearCycle = () => {
+                if (window.confirm("Delete current cycle and start fresh?")) {
+                    localStorage.removeItem('f603_live_cycle');
+                    setMasterMenu([]);
+                    setView('plan');
+                }
+            };
+
+            if (isSyncing) {
+                return (
+                    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8 text-center">
+                        <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center animate-bounce mb-6 text-white shadow-xl shadow-blue-200">
+                            <Icon name="RefreshCw" size={32} />
+                        </div>
+                        <h2 className="text-2xl font-black text-slate-800 tracking-tight mb-2 uppercase">F603 Core Sync</h2>
+                        <p className="text-slate-500 font-medium">Downloading latest recipe repositories...</p>
+                        <div className="mt-8 w-48 h-1 bg-slate-200 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-600 animate-[shimmer_2s_infinite]" style={{ width: '60%' }}></div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen pb-32">
+                    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-blue-600 p-2.5 rounded-xl shadow-lg text-white">
+                                <Icon name="ChefHat" />
+                            </div>
+                            <div>
+                                <h1 className="text-lg font-black tracking-tighter leading-none uppercase">F603 <span className="text-blue-600">Kitchen</span></h1>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">AI Master v4.2</span>
+                            </div>
+                        </div>
+                        {view === 'live' && (
+                            <button onClick={() => setView('plan')} className="text-xs font-bold bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors">Adjust Plan</button>
+                        )}
+                    </header>
+
+                    <main className="max-w-6xl mx-auto p-6">
+                        {view === 'plan' ? (
+                            <div className="space-y-8 animate-in fade-in duration-700">
+                                <section className="bg-red-50 border-2 border-red-100 rounded-[2rem] p-6 relative overflow-hidden">
+                                    <h3 className="text-xs font-black uppercase text-red-800 tracking-widest mb-4 flex items-center gap-2">
+                                        <Icon name="Zap" size={14} /> Global Logic Directives
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
+                                        {["Ashish: Omelette on Mon/Wed/Fri", "Mummy (75): Soft Food priority", "Fri/Sat: Fun Merged Special", "Dinner: Light/Subzi Only", "Real-time Recipe Links"].map((d, i) => (
+                                            <div key={i} className="bg-white/70 backdrop-blur-sm p-3 rounded-xl text-sm font-bold text-red-900 flex items-center gap-2 border border-red-100">
+                                                <Icon name="CheckCircle2" size={16} className="text-red-500" /> {d}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="absolute top-0 right-0 p-8 opacity-5 text-red-900"><Icon name="Zap" size={120} /></div>
+                                </section>
+
+                                <div className="flex flex-wrap gap-6 items-end bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
+                                    <div className="flex-1 min-w-[200px]">
+                                        <label className="block text-[10px] font-black text-slate-400 tracking-widest mb-2 uppercase">Cycle Start Date</label>
+                                        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full p-4 rounded-2xl border border-slate-200 font-bold outline-none focus:ring-2 ring-blue-500 transition-all bg-slate-50" />
+                                    </div>
+                                    <div className="flex-1 min-w-[200px]">
+                                        <label className="block text-[10px] font-black text-slate-400 tracking-widest mb-2 uppercase">Duration</label>
+                                        <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
+                                            {['1d', '3d', '7d', '14d'].map(t => (
+                                                <button key={t} onClick={() => setCycle(t)} className={`flex-1 py-3 rounded-xl text-sm font-black transition-all ${cycle === t ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}>{t.toUpperCase()}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {inventory.map((cat, cIdx) => (
+                                        <div key={cat.id} className="bg-white rounded-[2rem] border border-slate-200 p-6 shadow-sm">
+                                            <h4 className="font-black text-slate-800 mb-4 tracking-tight border-b border-slate-100 pb-2">{cat.title}</h4>
+                                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                                                {cat.items.map((item, iIdx) => (
+                                                    <button 
+                                                        key={item.name}
+                                                        onClick={() => {
+                                                            const next = [...inventory];
+                                                            next[cIdx].items[iIdx].selected = !next[cIdx].items[iIdx].selected;
+                                                            setInventory(next);
+                                                        }}
+                                                        className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between ${item.selected ? 'bg-blue-50 border-blue-100' : 'bg-slate-50 border-transparent opacity-50'}`}
+                                                    >
+                                                        <div>
+                                                            <p className="text-sm font-black text-slate-700">{item.name}</p>
+                                                            <p className="text-[11px] font-bold text-slate-400">{item.hi}</p>
+                                                        </div>
+                                                        {item.soft && <Icon name="Heart" size={14} className="text-pink-400 fill-pink-400" />}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in zoom-in-95 duration-500">
+                                {masterMenu.map((day, dIdx) => (
+                                    <div key={day.day} className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden flex flex-col transform hover:scale-[1.01] transition-transform">
+                                        <div className="bg-slate-900 p-6 text-white flex justify-between items-center">
+                                            <div>
+                                                <h3 className="text-xl font-black">{day.weekDay}</h3>
+                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{day.date}</p>
+                                            </div>
+                                            <div className="text-[10px] font-black text-blue-400 uppercase px-3 py-1 bg-white/10 rounded-full">Day {day.day}</div>
+                                        </div>
+                                        <div className="divide-y divide-slate-100 flex-1">
+                                            <MealItem icon="Zap" color="orange" label="Breakfast" name={day.breakfast.name} sub={day.isAshishEgg ? "Ashish: Egg Omelette" : ""} yt={day.breakfast.yt} />
+                                            <MealItem icon="Settings" color="green" label="Lunch" name={`${day.lunch.veg.name} + ${day.lunch.prot.name}`} yt={day.lunch.veg.yt} />
+                                            {day.isWeekendMerge ? (
+                                                <div className="p-6 bg-gradient-to-br from-pink-50 to-white border-y border-pink-100">
+                                                    <p className="text-[10px] font-black text-pink-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                        <Icon name="PartyPopper" size={14} /> Weekend Merge
+                                                    </p>
+                                                    <div className="flex justify-between items-center">
+                                                        <div>
+                                                            <h4 className="text-lg font-black text-pink-700 tracking-tight">{day.weekendSnack.name}</h4>
+                                                            <p className="text-xs font-bold text-pink-400 italic">Main Fun Meal + {day.dinner.veg.name}</p>
+                                                        </div>
+                                                        <a href={day.weekendSnack.yt} target="_blank" className="w-12 h-12 rounded-2xl bg-pink-600 text-white flex items-center justify-center shadow-lg shadow-pink-200 hover:scale-110 transition-transform">
+                                                            <Icon name="Zap" />
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <React.Fragment>
+                                                    <MealItem icon="MessageCircle" color="purple" label="Snack" name={day.snack.name} yt={day.snack.yt} />
+                                                    <MealItem icon="Moon" color="blue" label="Dinner" name={day.dinner.veg.name} sub="Subzi Only" yt={day.dinner.veg.yt} />
+                                                </React.Fragment>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </main>
+
+                    <footer className="fixed bottom-0 left-0 right-0 p-6 bg-white/90 backdrop-blur-xl border-t border-slate-200 z-[100] flex justify-center gap-4 shadow-2xl">
+                        {view === 'plan' ? (
+                            <button onClick={deployMenu} className="w-full max-w-md bg-blue-600 hover:bg-blue-700 text-white font-black py-4 px-8 rounded-[1.5rem] shadow-xl shadow-blue-200 flex items-center justify-center gap-3 transition-all active:scale-95">
+                                <Icon name="RefreshCw" size={20} /> Deploy Master Cycle
+                            </button>
+                        ) : (
+                            <React.Fragment>
+                                <button onClick={shareWhatsApp} className="flex-1 max-w-xs bg-green-500 hover:bg-green-600 text-white font-black py-4 px-6 rounded-[1.5rem] shadow-xl shadow-green-200 flex items-center justify-center gap-2 transition-all active:scale-95">
+                                    <Icon name="MessageCircle" size={20} /> WhatsApp Cook
+                                </button>
+                                <button onClick={() => window.print()} className="bg-slate-800 hover:bg-slate-900 text-white font-black p-4 rounded-2xl shadow-lg transition-colors"><Icon name="Printer" size={20} /></button>
+                                <button onClick={clearCycle} className="bg-red-50 text-red-600 p-4 rounded-2xl border border-red-100 hover:bg-red-100 transition-colors"><Icon name="Trash2" size={20} /></button>
+                            </React.Fragment>
+                        )}
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
