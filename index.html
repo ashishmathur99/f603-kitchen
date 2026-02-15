@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The360 Kitchen | Master Engine v11.5</title>
+    <title>The360 Kitchen | Logic Sync v11.6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -132,11 +132,11 @@
 
             useEffect(() => {
                 const syncData = setTimeout(() => {
-                    const savedHistory = localStorage.getItem('t360_history_v11_5');
+                    const savedHistory = localStorage.getItem('t360_history_v11_6');
                     if (savedHistory) setHistory(JSON.parse(savedHistory));
-                    const savedDislikes = localStorage.getItem('t360_dislikes_v11_5');
+                    const savedDislikes = localStorage.getItem('t360_dislikes_v11_6');
                     if (savedDislikes) setDislikedItems(new Set(JSON.parse(savedDislikes)));
-                    const savedDirs = localStorage.getItem('t360_dirs_v11_5');
+                    const savedDirs = localStorage.getItem('t360_dirs_v11_6');
                     if (savedDirs) setDirectives(JSON.parse(savedDirs));
                     setIsSyncing(false);
                 }, 800);
@@ -145,17 +145,26 @@
 
             useEffect(() => {
                 if (!isSyncing) {
-                    localStorage.setItem('t360_history_v11_5', JSON.stringify(history));
-                    localStorage.setItem('t360_dislikes_v11_5', JSON.stringify([...dislikedItems]));
-                    localStorage.setItem('t360_dirs_v11_5', JSON.stringify(directives));
+                    localStorage.setItem('t360_history_v11_6', JSON.stringify(history));
+                    localStorage.setItem('t360_dislikes_v11_6', JSON.stringify([...dislikedItems]));
+                    localStorage.setItem('t360_dirs_v11_6', JSON.stringify(directives));
                 }
             }, [history, dislikedItems, directives, isSyncing]);
 
             const getShuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
 
+            // Parsing engine to check if a specific day should trigger special logic
+            const checkLogic = (dayName, keyword) => {
+                const target = dayName.toLowerCase();
+                const key = keyword.toLowerCase();
+                return directives.some(d => {
+                    const line = d.toLowerCase();
+                    return line.includes(target) && line.includes(key);
+                });
+            };
+
             const generateMenu = () => {
                 const filterPool = (pool) => pool.filter(item => !dislikedItems.has(item.name));
-                
                 const pools = {
                     breakfast: getShuffle(filterPool(MASTER_REPO.breakfast)),
                     dry_veggies: getShuffle(filterPool(MASTER_REPO.dry_veggies)),
@@ -178,22 +187,24 @@
                 for (let i = 0; i < cycle; i++) {
                     const d = new Date(start);
                     d.setDate(start.getDate() + i);
-                    const dayOfWeek = d.getDay(); // 0=Sun, 1=Mon... 5=Fri, 6=Sat
+                    const dayName = d.toLocaleDateString('en-IN', { weekday: 'long' });
 
-                    const isFriday = dayOfWeek === 5;
-                    const isSaturday = dayOfWeek === 6;
+                    // DYNAMIC LOGIC CHECKING (The "Brain" upgrade)
+                    const isSpecialLunchDay = checkLogic(dayName, "Special") || checkLogic(dayName, "Saturday");
+                    const isNoDinnerDay = checkLogic(dayName, "No Dinner") || checkLogic(dayName, "Friday");
+                    const forceDualDal = directives.some(dir => dir.toLowerCase().includes("dual dal") || dir.toLowerCase().includes("arhar"));
 
                     newMenu.push({
                         id: i,
                         date: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-                        dayName: d.toLocaleDateString('en-IN', { weekday: 'long' }),
-                        isFriday,
-                        isSaturday,
+                        dayName,
+                        isNoDinnerDay,
+                        isSpecialLunchDay,
                         flourMix,
                         lunchSide: { en: "Roti", hi: "रोटी" }, 
                         dinnerSide: { en: "Roti", hi: "रोटी" },
                         breakfast: pools.breakfast[i % pools.breakfast.length],
-                        lunch: isSaturday ? {
+                        lunch: isSpecialLunchDay ? {
                             isSpecial: true,
                             main: pools.special_meals[i % pools.special_meals.length]
                         } : {
@@ -202,8 +213,8 @@
                             dal: pools.dals[0] 
                         },
                         curd: pools.curd[i % pools.curd.length],
-                        snack: isFriday ? pools.special_meals[i % pools.special_meals.length] : pools.snacks[i % pools.snacks.length],
-                        dinner: isFriday ? null : { 
+                        snack: isNoDinnerDay ? pools.special_meals[i % pools.special_meals.length] : pools.snacks[i % pools.snacks.length],
+                        dinner: isNoDinnerDay ? null : { 
                             main: Math.random() > 0.4 
                                 ? pools.gravy_veggies[i % pools.gravy_veggies.length] 
                                 : pools.heavy_proteins[i % pools.heavy_proteins.length]
@@ -211,7 +222,6 @@
                     });
                 }
 
-                // Add prep notes from the *next* day's items
                 for (let i = 0; i < newMenu.length; i++) {
                     const nextDay = newMenu[i + 1];
                     const preps = [];
@@ -247,7 +257,7 @@
                     <div className="bg-blue-600 p-4 rounded-3xl text-white mb-6 shadow-2xl pulse-light">
                         <Icon name="ChefHat" size={40} />
                     </div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Syncing Master v11.5</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Syncing Master v11.6</p>
                 </div>
             );
 
@@ -316,12 +326,12 @@
                             <div className="space-y-12 animate-fade-in">
                                 <div className="text-center">
                                     <h2 className="text-5xl font-black tracking-tighter text-slate-900 mb-4 leading-none">Indian Menu Planner</h2>
-                                    <p className="text-slate-500 font-medium italic">Friday Fun Night • Saturday Special • Dual Dal</p>
+                                    <p className="text-slate-500 font-medium italic">Logic Engine v11.6 • Active Directives Tracking</p>
                                 </div>
 
                                 <section className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm space-y-6">
                                     <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                                        <Icon name="Activity" size={14} className="text-blue-500" /> Editable System Directives
+                                        <Icon name="Activity" size={14} className="text-blue-500" /> Dynamic Rules (Edit & Generate)
                                     </h3>
                                     <div className="space-y-2">
                                         {directives.map((d, i) => (
@@ -330,8 +340,9 @@
                                                 <button onClick={() => setDirectives(directives.filter((_, idx) => idx !== i))} className="p-3 text-slate-300 hover:text-red-500"><Icon name="X" size={16} /></button>
                                             </div>
                                         ))}
-                                        <button onClick={() => setDirectives([...directives, "Add new rule..."])} className="text-[9px] font-black uppercase text-blue-600 bg-blue-50 px-4 py-2 rounded-lg mt-2">+ Add Logic Rule</button>
+                                        <button onClick={() => setDirectives([...directives, "Day: Logic Rule..."])} className="text-[9px] font-black uppercase text-blue-600 bg-blue-50 px-4 py-2 rounded-lg mt-2">+ Add Logic Rule</button>
                                     </div>
+                                    <p className="text-[9px] text-slate-400 italic font-bold">Try writing: "Monday: Special Meal" or "Tuesday: No Dinner"</p>
                                 </section>
 
                                 <div className="grid md:grid-cols-3 gap-6">
@@ -352,7 +363,7 @@
                                 </div>
 
                                 <button onClick={generateMenu} className="w-full py-6 bg-blue-600 text-white rounded-[2.5rem] font-black uppercase tracking-widest shadow-2xl hover:bg-blue-700 transition-all flex items-center justify-center gap-4 text-sm">
-                                    <Icon name="Zap" /> Apply Rules & Generate
+                                    <Icon name="Zap" /> Sync Rules & Generate Menu
                                 </button>
                             </div>
                         ) : (
@@ -360,7 +371,7 @@
                                 <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print">
                                     <div>
                                         <h2 className="text-4xl font-black tracking-tight uppercase leading-none">{activeMenu.city} Cycle</h2>
-                                        <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em] mt-2 italic">Standard logic + Specialized Fridays & Saturdays</p>
+                                        <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em] mt-2 italic">Custom Directives Synced • Ayurvedic Seasonal Prep</p>
                                     </div>
                                     <div className="flex gap-3">
                                         <button onClick={() => window.print()} className="bg-white border border-slate-200 p-4 rounded-2xl hover:bg-slate-50 shadow-sm"><Icon name="Printer" size={20} /></button>
@@ -371,23 +382,23 @@
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     {activeMenu.days.map((day) => (
                                         <div key={day.id} className="bg-white rounded-[3rem] border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden flex flex-col relative">
-                                            <div className={`px-8 py-5 flex justify-between items-center ${day.isFriday ? 'bg-orange-500 text-white' : day.isSaturday ? 'bg-purple-600 text-white' : 'bg-slate-900 text-white'}`}>
+                                            <div className={`px-8 py-5 flex justify-between items-center ${day.isNoDinnerDay ? 'bg-orange-500 text-white' : day.isSpecialLunchDay ? 'bg-purple-600 text-white' : 'bg-slate-900 text-white'}`}>
                                                 <div>
                                                     <p className="font-black uppercase tracking-tighter text-xl">{day.dayName}</p>
-                                                    <p className="text-[10px] font-bold opacity-60 uppercase">{day.date} {day.isFriday ? '• FUN NIGHT' : day.isSaturday ? '• SPECIAL' : ''}</p>
+                                                    <p className="text-[10px] font-bold opacity-60 uppercase">{day.date} {day.isNoDinnerDay ? '• FUN NIGHT' : day.isSpecialLunchDay ? '• SPECIAL' : ''}</p>
                                                 </div>
-                                                <Icon name={day.isFriday ? "PartyPopper" : day.isSaturday ? "Sparkles" : "ChefHat"} size={24} />
+                                                <Icon name={day.isNoDinnerDay ? "PartyPopper" : day.isSpecialLunchDay ? "Sparkles" : "ChefHat"} size={24} />
                                             </div>
                                             <div className="p-8 space-y-8 flex-1">
                                                 <MealItem icon="Zap" label="Breakfast" item={day.breakfast} onEdit={() => setEditingMeal({ dayId: day.id, path: 'breakfast', pool: 'breakfast' })} yt={getYTLink(day.breakfast.name)} />
                                                 
                                                 <div className="h-px bg-slate-50" />
                                                 
-                                                <div className={`space-y-5 ${day.isSaturday ? 'bg-purple-50/50 p-4 rounded-[2rem] border border-purple-100' : ''}`}>
-                                                    <h3 className={`text-[10px] font-black uppercase tracking-widest ${day.isSaturday ? 'text-purple-600' : 'text-slate-400'}`}>Lunch</h3>
+                                                <div className={`space-y-5 ${day.isSpecialLunchDay ? 'bg-purple-50/50 p-4 rounded-[2rem] border border-purple-100' : ''}`}>
+                                                    <h3 className={`text-[10px] font-black uppercase tracking-widest ${day.isSpecialLunchDay ? 'text-purple-600' : 'text-slate-400'}`}>Lunch</h3>
                                                     <div className="grid grid-cols-1 gap-6 pl-2">
                                                         {day.lunch.isSpecial ? (
-                                                            <MealItem icon="ChefHat" label="Special Saturday Meal" item={day.lunch.main} onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.main', pool: 'special_meals' })} yt={getYTLink(day.lunch.main.name)} />
+                                                            <MealItem icon="ChefHat" label="Special Menu Meal" item={day.lunch.main} onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.main', pool: 'special_meals' })} yt={getYTLink(day.lunch.main.name)} />
                                                         ) : (
                                                             <React.Fragment>
                                                                 <MealItem icon="Leaf" label="Dry Sabzi (Tiffin)" item={day.lunch.veg} onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.veg', pool: 'dry_veggies' })} yt={getYTLink(day.lunch.veg.name)} />
@@ -400,22 +411,22 @@
 
                                                 <div className="h-px bg-slate-50" />
                                                 
-                                                <div className={`space-y-4 ${day.isFriday ? 'bg-orange-50 p-4 rounded-[2rem] border border-orange-100 shadow-sm' : ''}`}>
+                                                <div className={`space-y-4 ${day.isNoDinnerDay ? 'bg-orange-50 p-4 rounded-[2rem] border border-orange-100 shadow-sm' : ''}`}>
                                                     <MealItem 
-                                                        icon={day.isFriday ? "Zap" : "MessageSquare"} 
-                                                        label={day.isFriday ? "Friday Fun Snack (Dinner Replacement)" : "Evening Snack"} 
+                                                        icon={day.isNoDinnerDay ? "Zap" : "MessageSquare"} 
+                                                        label={day.isNoDinnerDay ? "Fun Snack (Dinner Replacement)" : "Evening Snack"} 
                                                         item={day.snack} 
-                                                        onEdit={() => setEditingMeal({ dayId: day.id, path: 'snack', pool: day.isFriday ? 'special_meals' : 'snacks' })} 
+                                                        onEdit={() => setEditingMeal({ dayId: day.id, path: 'snack', pool: day.isNoDinnerDay ? 'special_meals' : 'snacks' })} 
                                                         yt={getYTLink(day.snack.name)} 
                                                     />
-                                                    {day.isFriday && <p className="text-[10px] font-black text-orange-600 uppercase ml-14 tracking-tight">★ No separate dinner tonight</p>}
+                                                    {day.isNoDinnerDay && <p className="text-[10px] font-black text-orange-600 uppercase ml-14 tracking-tight">★ Logic: No separate dinner tonight</p>}
                                                 </div>
 
                                                 {day.dinner && (
                                                     <React.Fragment>
                                                         <div className="h-px bg-slate-50" />
                                                         <div className="space-y-5">
-                                                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dinner (Main)</h3>
+                                                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dinner (Main Course)</h3>
                                                             <div className="pl-2">
                                                                 <MealItem icon="Moon" label="Gravy Main" item={day.dinner.main} onEdit={() => setEditingMeal({ dayId: day.id, path: 'dinner.main', pool: 'gravy_veggies' })} yt={getYTLink(day.dinner.main.name)} />
                                                             </div>
