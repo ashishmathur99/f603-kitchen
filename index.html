@@ -3,819 +3,492 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Indian Vegetarian Menu Planner v5.5 (User Guide)</title>
-    <!-- Tailwind CSS -->
+    <title>The360 Kitchen | Ayurvedic Cook's Edition v11.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React and ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        @media print { .fixed, header, button, .no-print { display: none !important; } main { padding: 0 !important; } .bg-white { border: none !important; } }
-        
-        /* Specific brand colors */
-        .bb-green { color: #84c225; } /* BigBasket Green */
-        .td-orange { color: #f26522; } /* Tarla Dalal Orange */
-        .hk-red { color: #e11d48; } /* Hebbar's Kitchen Red */
-        .be-yellow { color: #d97706; } /* Bong Eats Yellow/Mustard */
-        .hb-green { color: #15803d; } /* Healthy Buddha Green */
+        @media print { .no-print { display: none !important; } .print-only { display: block !important; } }
+        .history-card:hover .delete-btn { opacity: 1; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
     </style>
 </head>
-<body class="bg-slate-50 font-sans text-slate-900 selection:bg-blue-100">
+<body class="bg-slate-50 text-slate-900 selection:bg-blue-100">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
-        const Icon = ({ name, size = 24, className = "" }) => {
+        const Icon = ({ name, size = 20, className = "" }) => {
             const iconRef = useRef(null);
             useEffect(() => {
-                const render = () => {
-                    if (window.lucide && iconRef.current) {
-                        const kebabName = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-                        iconRef.current.innerHTML = `<i data-lucide="${kebabName}"></i>`;
-                        window.lucide.createIcons({
-                            attrs: { width: size, height: size, 'stroke-width': 2.5, class: className }
-                        });
-                    }
-                };
-                render();
-                const timer = setTimeout(render, 500);
-                return () => clearTimeout(timer);
+                if (window.lucide && iconRef.current) {
+                    const kebabName = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+                    iconRef.current.innerHTML = `<i data-lucide="${kebabName}"></i>`;
+                    window.lucide.createIcons({ attrs: { width: size, height: size, 'stroke-width': 2.5, class: className } });
+                }
             }, [name, size, className]);
             return <span ref={iconRef} className="inline-flex items-center justify-center" />;
         };
 
-        const Tooltip = ({ text }) => (
-            <div className="group relative inline-block ml-2 align-middle z-10">
-                <Icon name="Info" size={16} className="text-slate-300 hover:text-blue-500 cursor-help transition-colors" />
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-medium p-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-center shadow-xl">
-                    {text}
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-                </div>
-            </div>
-        );
-
-        const HelpModal = ({ onClose }) => (
-            <div className="fixed inset-0 z-[2000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
-                <div className="bg-white rounded-[2.5rem] p-8 max-w-lg w-full shadow-2xl ring-1 ring-white/20 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-12 opacity-5 text-blue-600 rotate-12 pointer-events-none"><Icon name="ChefHat" size={200} /></div>
-                    
-                    <div className="flex justify-between items-center mb-8 relative z-10">
-                        <div>
-                            <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Quick Guide</h2>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Mastering the Menu Planner</p>
-                        </div>
-                        <button onClick={onClose} className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition-colors"><Icon name="X" className="text-slate-500" /></button>
-                    </div>
-                    
-                    <div className="space-y-6 relative z-10">
-                        <div className="flex gap-5 items-start">
-                            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-xl shrink-0 shadow-sm">1</div>
-                            <div>
-                                <h4 className="font-black text-slate-800 text-lg">Set Context</h4>
-                                <p className="text-sm text-slate-500 font-medium leading-relaxed">Enter your <strong>City</strong>. The AI automatically detects the season (e.g., Winter in Delhi vs Tropical in Mumbai) to filter available veggies.</p>
-                            </div>
-                        </div>
-                        <div className="flex gap-5 items-start">
-                            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center font-black text-xl shrink-0 shadow-sm">2</div>
-                            <div>
-                                <h4 className="font-black text-slate-800 text-lg">Define Rules</h4>
-                                <p className="text-sm text-slate-500 font-medium leading-relaxed">Edit the <strong>Directives</strong>. Tell the AI constraints like "No Rice at night" or "Soft food for elders".</p>
-                            </div>
-                        </div>
-                        <div className="flex gap-5 items-start">
-                            <div className="w-12 h-12 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center font-black text-xl shrink-0 shadow-sm">3</div>
-                            <div>
-                                <h4 className="font-black text-slate-800 text-lg">Check Inventory</h4>
-                                <p className="text-sm text-slate-500 font-medium leading-relaxed">Uncheck items you don't have in your kitchen. The planner only uses what is <strong>selected</strong>.</p>
-                            </div>
-                        </div>
-                        <div className="flex gap-5 items-start">
-                            <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center font-black text-xl shrink-0 shadow-sm">4</div>
-                            <div>
-                                <h4 className="font-black text-slate-800 text-lg">Deploy & Share</h4>
-                                <p className="text-sm text-slate-500 font-medium leading-relaxed">Click <strong>Deploy</strong>. In Live View, use the Edit icon to swap dishes manually, then share via WhatsApp.</p>
-                            </div>
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="mt-8 w-full py-4 bg-slate-900 text-white font-black rounded-2xl hover:scale-[1.02] active:scale-95 transition-all shadow-xl">Got it, Let's Cook!</button>
-                </div>
-            </div>
-        );
-
         const AYURVEDA_FLOURS = {
-            winter: { en: "Bajra (Millet) & Makka (Corn)", hi: "बाजरा और मक्का (गरम)" },
-            summer: { en: "Jowar (Sorghum) & Barley (Jau)", hi: "ज्वार और जौ (ठंडा)" },
-            monsoon: { en: "Wheat with Bran & Gram Flour (Besan)", hi: "चोकर वाला गेहूं और बेसन" },
-            spring: { en: "Mixed Grain (Ragi, Amaranth, Wheat)", hi: "मिक्स्ड अनाज (रागी, चौलाई)" },
+            winter: { en: "Bajra & Makka (Heating)", hi: "बाजरा और मक्का (गरम तासीर)" },
+            summer: { en: "Jowar & Barley (Cooling)", hi: "ज्वार और जौ (ठंडी तासीर)" },
+            monsoon: { en: "Wheat with Bran & Besan", hi: "चोकर वाला गेहूं और बेसन" },
             tropical: { en: "Rice Flour & Ragi", hi: "चावल का आटा और रागी" }
         };
 
-        const GLOBAL_RESOURCES = {
+        const MASTER_REPO = {
             breakfast: [
-                { name: "Kanda Poha", hi: "कांदा पोहा", soft: true, source: "Tarla Dalal" },
-                { name: "Akki Roti (Rice Roti)", hi: "अक्की रोटी", soft: false, source: "Hebbar's Kitchen" },
-                { name: "Rava Dosa", hi: "रवा डोसा", soft: false, source: "Hebbar's Kitchen" },
-                { name: "Luchi & Alur Dom", hi: "लुची आलू दम", soft: false, source: "Bong Eats" },
-                { name: "Radhaballavi (Stuffed Puri)", hi: "राधाबल्लवी", soft: false, source: "Bong Eats" },
-                { name: "Oats Utthapam", hi: "ओट्स उत्तपम", soft: true, source: "Tarla Dalal" },
-                { name: "Moong Dal Cheela", hi: "मूंग दाल चीला", soft: true, source: "Tarla Dalal" },
-                { name: "Sabudana Khichdi", hi: "साबूदाना खिचड़ी", soft: true, source: "Hebbar's Kitchen" },
-                { name: "Methi Thepla", hi: "मेथी थेपला", soft: false, source: "Tarla Dalal" },
-                { name: "Aloo Paratha", hi: "आलू पराठा", soft: false, source: "Hebbar's Kitchen" },
-                { name: "Gobi Paratha", hi: "गोभी पराठा", soft: false, source: "Tarla Dalal" },
-                { name: "Paneer Paratha", hi: "पनीर पराठा", soft: false, source: "Hebbar's Kitchen" },
-                { name: "Sattu Paratha", hi: "सत्तू पराठा", soft: false, source: "Tarla Dalal" },
-                { name: "Koraishutir Kochuri (Peas Puri)", hi: "मटर कचौरी", soft: false, source: "Bong Eats" },
-                { name: "Besan Chilla", hi: "बेसन चीला", soft: true, source: "Tarla Dalal" },
-                { name: "Upma with Veggies", hi: "उपमा", soft: true, source: "Hebbar's Kitchen" },
-                { name: "Mixed Dal Adai", hi: "मिक्स्ड दाल अड़ाई", soft: true, source: "Tarla Dalal" },
-                { name: "Appam with Stew", hi: "अप्पम", soft: true, source: "Hebbar's Kitchen" },
-                { name: "Khaman Dhokla", hi: "खमन ढोकला", soft: true, source: "Tarla Dalal" },
-                { name: "Pesarattu", hi: "पेसरट्टू", soft: true, source: "Hebbar's Kitchen" },
-                { name: "Ven Pongal", hi: "वेन पोंगल", soft: true, source: "Hebbar's Kitchen" },
-                { name: "Neer Dosa", hi: "नीर डोसा", soft: true, source: "Hebbar's Kitchen" },
-                { name: "Set Dosa", hi: "सेट डोसा", soft: true, source: "Hebbar's Kitchen" },
-                { name: "Idiyappam", hi: "इडियप्पम", soft: true, source: "Hebbar's Kitchen" },
-                { name: "Puri Bhaji", hi: "पूरी भाजी", soft: false, source: "Tarla Dalal" },
-                { name: "Chole Bhature", hi: "छोले भटूरे", soft: false, source: "Hebbar's Kitchen" },
-                { name: "Misal Pav", hi: "मिसल पाव", soft: false, source: "Hebbar's Kitchen" },
-                { name: "Vada Pav", hi: "वड़ा पाव", soft: false, source: "Hebbar's Kitchen" },
-                { name: "Dahi Vada", hi: "दही वड़ा", soft: true, source: "Hebbar's Kitchen" },
-                { name: "Veg Grilled Sandwich", hi: "वेज सैंडविच", soft: false, source: "Tarla Dalal" },
-                { name: "Vermicelli Upma", hi: "सेवई उपमा", soft: true, source: "Hebbar's Kitchen" }
+                { name: "Kanda Poha", hi: "कांदा पोहा", prep: { en: "Wash poha 10 mins before", hi: "पोहा बनाने से 10 मिनट पहले धो लें" } },
+                { name: "Aloo Paratha", hi: "आलू पराठा", prep: { en: "Boil potatoes & knead dough", hi: "आलू उबालें और आटा गूंथ लें" } },
+                { name: "Methi Thepla", hi: "मेथी थेपला", prep: { en: "Clean & chop fresh methi", hi: "मेथी साफ करके काट लें" } },
+                { name: "Besan Chilla", hi: "बेसन चीला", prep: { en: "Keep besan ready", hi: "बेसन तैयार रखें" } },
+                { name: "Rava Upma", hi: "रवा उपमा", prep: { en: "Chop carrots & beans", hi: "गाजर और बीन्स काट लें" } },
+                { name: "Gobhi Paratha", hi: "गोभी पराठा", prep: { en: "Grate cauliflower tonight", hi: "आज रात गोभी कद्दूकस कर लें" } },
+                { name: "Moong Dal Cheela", hi: "मूंग दाल चीला", prep: { en: "Soak Moong Dal tonight", hi: "आज रात मूंग दाल भिगो दें" } },
+                { name: "Sabudana Khichdi", hi: "साबूदाना खिचड़ी", prep: { en: "Soak Sabudana tonight", hi: "आज रात साबूदाना भिगो दें" } }
             ],
-            veggies: [
-                { name: "Zucchini (Green/Yellow)", hi: "जुकिनी", soft: true, style: 'dry', season: ["summer", "tropical"], source: "Healthy Buddha" },
-                { name: "Broccoli", hi: "ब्रोकोली", soft: false, style: 'dry', season: ["winter", "spring"], source: "Farm Fresh" },
-                { name: "Red Amaranth (Lal Saag)", hi: "लाल साग", soft: true, style: 'gravy', season: ["summer", "monsoon", "tropical"], source: "Healthy Buddha" },
-                { name: "Baby Corn", hi: "बेबी कॉर्न", soft: false, style: 'dry', season: ["all"], source: "Farm Fresh" },
-                { name: "Bok Choy", hi: "बॉक चॉय", soft: true, style: 'dry', season: ["winter", "tropical"], source: "Healthy Buddha" },
-                { name: "Lauki (Bottle Gourd)", hi: "लौकी", soft: true, style: 'both', season: ["winter", "summer", "monsoon", "spring", "tropical"], source: "Healthy Buddha" },
-                { name: "Turai (Ridge Gourd)", hi: "तोरई", soft: true, style: 'gravy', season: ["monsoon", "summer", "tropical"], source: "Farm Fresh" },
-                { name: "Bhindi (Okra)", hi: "भिंडी", soft: false, style: 'dry', season: ["summer", "monsoon", "tropical"] },
-                { name: "Baingan (Brinjal)", hi: "बैंगन", soft: true, style: 'both', season: ["winter", "spring", "tropical"] },
-                { name: "Red Pumpkin (Kaddu)", hi: "कद्दू", soft: true, style: 'both', season: ["winter", "monsoon", "tropical"] },
-                { name: "Parwal (Pointed Gourd)", hi: "परवल", soft: true, style: 'dry', season: ["monsoon", "tropical"] },
-                { name: "Cauliflower (Gobi)", hi: "गोभी", soft: false, style: 'dry', season: ["winter"] },
-                { name: "Green Peas (Matar)", hi: "मटर", soft: true, style: 'both', season: ["winter"] },
-                { name: "Tinda (Apple Gourd)", hi: "टिंडा", soft: true, style: 'gravy', season: ["summer"] },
-                { name: "Capsicum (Simla Mirch)", hi: "शिमला मिर्च", soft: false, style: 'dry', season: ["winter", "spring", "tropical"] },
-                { name: "Ivy Gourd (Kundru)", hi: "कुंदरू", soft: false, style: 'dry', season: ["monsoon", "summer", "tropical"] },
-                { name: "Sarson (Mustard Greens)", hi: "सरसों", soft: true, style: 'gravy', season: ["winter"] },
-                { name: "Drumstick (Moringa)", hi: "सहजन", soft: false, style: 'gravy', season: ["tropical", "summer"] },
-                { name: "Cabbage (Patta Gobi)", hi: "पत्ता गोभी", soft: false, style: 'dry', season: ["winter", "spring"] },
-                { name: "French Beans", hi: "बीन्स", soft: false, style: 'dry', season: ["winter", "spring", "summer", "monsoon", "tropical"] },
-                { name: "Carrot (Gajar)", hi: "गाजर", soft: true, style: 'dry', season: ["winter"] },
-                { name: "Beetroot (Chukandar)", hi: "चुकंदर", soft: true, style: 'dry', season: ["winter", "spring"], source: "Healthy Buddha" },
-                { name: "Spinach (Palak)", hi: "पालक", soft: true, style: 'both', season: ["winter", "spring", "monsoon"], source: "Farm Fresh" },
-                { name: "Fenugreek (Methi)", hi: "मेथी", soft: true, style: 'both', season: ["winter"] },
-                { name: "Colocasia (Arbi)", hi: "अरबी", soft: true, style: 'dry', season: ["summer", "monsoon"] },
-                { name: "Yam (Jimikand/Suran)", hi: "जिमीकंद", soft: true, style: 'dry', season: ["winter"] },
-                { name: "Raw Banana (Kaccha Kela)", hi: "कच्चा केला", soft: true, style: 'dry', season: ["tropical", "monsoon"] },
-                { name: "Bitter Gourd (Karela)", hi: "करेला", soft: false, style: 'dry', season: ["summer", "monsoon"] },
-                { name: "Cluster Beans (Gawar)", hi: "ग्वार फली", soft: false, style: 'dry', season: ["summer", "monsoon"] },
-                { name: "Shukto Mix (Bitter/Sweet)", hi: "शुक्तो", soft: true, style: 'gravy', season: ["all"], source: "Bong Eats" },
-                { name: "Snake Gourd (Chichinda)", hi: "चिचिंडा", soft: true, style: 'gravy', season: ["summer", "monsoon"] },
-                { name: "Amaranth Leaves (Chaulai)", hi: "चौलाई", soft: true, style: 'gravy', season: ["summer", "monsoon"], source: "Farm Fresh" }
+            dry_veggies: [
+                { name: "Aloo Gobhi", hi: "आलू गोभी" },
+                { name: "Bhindi Masala", hi: "भिंडी मसाला" },
+                { name: "Jeera Aloo", hi: "जीरा आलू" },
+                { name: "Beans Aloo", hi: "बीन्स आलू" },
+                { name: "Baingan Bharta", hi: "बैंगन भरता", prep: { en: "Roast brinjal tonight", hi: "आज रात बैंगन भून लें" } },
+                { name: "Arbi Masala", hi: "अरबी मसाला" },
+                { name: "Karela Fry", hi: "करेला फ्राई", prep: { en: "Salt & squeeze bitter gourd", hi: "करेले में नमक लगाकर निचोड़ दें" } },
+                { name: "Cabbage Matar", hi: "पत्ता गोभी मटर" }
+            ],
+            gravy_veggies: [
+                { name: "Matar Paneer", hi: "मटर पनीर" },
+                { name: "Lauki Kofta", hi: "लौकी कोफ्ता", prep: { en: "Grate Lauki for kofta", hi: "कोफ्ते के लिए लौकी कद्दूकस कर लें" } },
+                { name: "Dum Aloo", hi: "दम आलू", prep: { en: "Boil small potatoes", hi: "छोटे आलू उबाल लें" } },
+                { name: "Palak Paneer", hi: "पालक पनीर", prep: { en: "Blanch & puree spinach", hi: "पालक उबालकर प्यूरी बना लें" } },
+                { name: "Mushroom Masala", hi: "मशरूम मसाला" },
+                { name: "Paneer Butter Masala", hi: "पनीर बटर मसाला" }
             ],
             proteins: [
-                { name: "Dhokar Dalna (Lentil Cake)", hi: "धोकर दालना", soft: true, style: 'gravy', source: "Bong Eats" },
-                { name: "Chhanar Dalna (Paneer Balls)", hi: "छानार दालना", soft: true, style: 'gravy', source: "Bong Eats" },
-                { name: "Fresh Paneer", hi: "पनीर", soft: true, style: 'both' },
-                { name: "Yellow Moong Dal", hi: "पीली मूंग दाल", soft: true, style: 'gravy' },
-                { name: "Arhar / Toor Dal", hi: "अरहर दाल", soft: true, style: 'gravy' },
-                { name: "Whole Soya Chunks", hi: "सोया बड़ी", soft: true, style: 'both' },
-                { name: "Kala Chana (Black Chickpeas)", hi: "काला चना", soft: false, style: 'both' },
-                { name: "White Rajma (Chitra)", hi: "चित्र राजमा", soft: true, style: 'gravy', source: "Hebbar's Kitchen" },
-                { name: "Green Moong (Whole)", hi: "हरी मूंग", soft: true, style: 'gravy' },
-                { name: "Chana Dal", hi: "चना दाल", soft: false, style: 'gravy' },
-                { name: "Masoor Dal (Split Red)", hi: "मलका मसूूर", soft: true, style: 'gravy' },
-                { name: "Kabuli Chana (Chole)", hi: "काबुली चना", soft: false, style: 'gravy', source: "Hebbar's Kitchen" },
-                { name: "Lobia (Black Eyed Peas)", hi: "लोबिया", soft: true, style: 'gravy' },
-                { name: "Moth Dal", hi: "मोठ दाल", soft: true, style: 'gravy' }
+                { name: "Dal Tadka (Arhar)", hi: "दाल तड़का", prep: { en: "Soak Arhar Dal for 30 mins", hi: "अरहर दाल 30 मिनट के लिए भिगो दें" } },
+                { name: "Dal Makhani", hi: "दाल मखनी", prep: { en: "Soak Black Urad tonight", hi: "आज रात काली उड़द भिगो दें" } },
+                { name: "Rajma Masala", hi: "राजमा", prep: { en: "Soak Rajma tonight", hi: "आज रात राजमा भिगो दें" } },
+                { name: "Chole (Kabuli Chana)", hi: "छोले", prep: { en: "Soak Kabuli Chana tonight", hi: "आज रात काबुली चना भिगो दें" } },
+                { name: "Kala Chana Curry", hi: "काला चना", prep: { en: "Soak Kala Chana tonight", hi: "आज रात काला चना भिगो दें" } },
+                { name: "Panchmel Dal", hi: "पंचमेल दाल", prep: { en: "Mix & soak 5 dals", hi: "5 दालें मिलाकर भिगो दें" } },
+                { name: "Chana Dal with Lauki", hi: "चना दाल लौकी", prep: { en: "Soak Chana Dal for 1 hour", hi: "चना दाल 1 घंटे के लिए भिगो दें" } }
             ],
             snacks: [
-                { name: "Roasted Makhana", hi: "मखाना", soft: true },
-                { name: "Sprouts Chaat", hi: "स्प्राउट्स चाट", soft: false, source: "Hebbar's Kitchen" },
-                { name: "Multigrain Bread Toast", hi: "मल्टीग्रेन टोस्ट", soft: false },
-                { name: "Steamed Sweet Corn", hi: "उबला भुट्टा", soft: true },
-                { name: "Roasted Peanuts", hi: "भुनी मूंगफली", soft: false },
-                { name: "Fruit Salad", hi: "फ्रूट सलाद", soft: true },
-                { name: "Bhel Puri", hi: "भेल पुरी", soft: false, source: "Hebbar's Kitchen" },
-                { name: "Sev Puri", hi: "सेव पुरी", soft: false, source: "Hebbar's Kitchen" },
-                { name: "Corn Chat", hi: "कॉर्न चाट", soft: true },
-                { name: "Dhokla", hi: "ढोकला", soft: true, source: "Tarla Dalal" },
-                { name: "Khandvi", hi: "खांडवी", soft: true, source: "Tarla Dalal" },
-                { name: "Samosa", hi: "समोसा", soft: false, source: "Hebbar's Kitchen" },
-                { name: "Kachori", hi: "कचौरी", soft: false, source: "Hebbar's Kitchen" },
-                { name: "Bread Pakora", hi: "ब्रेड पकोड़ा", soft: false, source: "Hebbar's Kitchen" },
-                { name: "Veg Cutlet", hi: "वेज कटलेट", soft: false, source: "Bong Eats" },
-                { name: "Hara Bhara Kabab", hi: "हरा भरा कबाब", soft: true, source: "Hebbar's Kitchen" },
-                { name: "Mathri", hi: "मठरी", soft: false },
-                { name: "Khakhra", hi: "खाखरा", soft: false }
-            ],
-            weekend: [
-                { name: "Tandoori Paneer Tikka", hi: "पनीर टिक्का", soft: true, fun: true, source: "Hebbar's Kitchen" },
-                { name: "Crispy Chili Mushroom", hi: "चिली मशरूम", soft: false, fun: true },
-                { name: "Hara Bhara Kabab", hi: "हरा भरा कबाब", soft: true, fun: true },
-                { name: "Veg Manchurian (Dry)", hi: "मंचूरियन", soft: true, fun: true, source: "Hebbar's Kitchen" },
-                { name: "Chili Garlic Potato", hi: "चिली गार्लिक आलू", soft: false, fun: true },
-                { name: "Soya Malai Chaap", hi: "मलाई चाप", soft: true, fun: true },
-                { name: "Pav Bhaji (Butter)", hi: "पाव भाजी", soft: true, fun: true, source: "Hebbar's Kitchen" },
-                { name: "Masala Peanuts & Salad", hi: "मसाला पीनट", soft: false, fun: true },
-                { name: "Momos (Steamed)", hi: "मोमोज", soft: true, fun: true, source: "Hebbar's Kitchen" },
-                { name: "Spring Rolls", hi: "स्प्रिंग रोल", soft: false, fun: true }
+                { name: "Roasted Makhana", hi: "मखाना" },
+                { name: "Sprouts Chaat", hi: "स्प्राउट्स", prep: { en: "Start sprouting mung tonight", hi: "आज रात मूंग अंकुरित करने के लिए रख दें" } },
+                { name: "Roasted Peanuts", hi: "भुनी मूंगफली" },
+                { name: "Murmura Namkeen", hi: "मुरमुरा" }
             ],
             curd: [
-                { name: "Set Curd (Plain)", hi: "दही" },
+                { name: "Plain Curd", hi: "दही" },
                 { name: "Boondi Raita", hi: "बूंदी रायता" },
-                { name: "Mix Veg Raita", hi: "वेजिटेबल रायता" },
-                { name: "Cucumber & Mint Raita", hi: "खीरा रायता" },
-                { name: "Lassi (Sweet/Salt)", hi: "लस्सी" },
-                { name: "Beetroot Raita", hi: "चुकंदर रायता" },
-                { name: "Pineapple Raita", hi: "अनानास रायता" }
+                { name: "Mix Veg Raita", hi: "वेजिटेबल रायता" }
+            ],
+            weekend: [
+                { name: "Pav Bhaji", hi: "पाव भाजी", prep: { en: "Boil mix veggies tonight", hi: "आज रात मिक्स सब्जियां उबाल लें" } },
+                { name: "Chole Bhature", hi: "छोले भटूरे", prep: { en: "Soak Chole & prepare dough", hi: "छोले भिगोएं और आटा तैयार करें" } },
+                { name: "Veg Biryani", hi: "वेज बिरयानी", prep: { en: "Soak Basmati Rice", hi: "बासमती चावल भिगो दें" } },
+                { name: "Paneer Tikka", hi: "पनीर टिक्का", prep: { en: "Marinate Paneer", hi: "पनीर को मैरीनेट करें" } }
             ]
         };
 
         const App = () => {
-            const [isSyncing, setIsSyncing] = useState(true);
-            const [inventory, setInventory] = useState([]);
-            const [masterMenu, setMasterMenu] = useState([]);
-            const [city, setCity] = useState("Bengaluru");
-            const [directives, setDirectives] = useState([
-                "Ashish: Egg Omelette on Mon/Wed/Fri (Mandatory Protein Sync)",
-                "Mummy (75): Always prioritize Soft Food items",
-                "Lunch Logic: Exactly 3 days Rice (चावल), 4 days Roti (रोटी)",
-                "Dinner: Must be Gravy Dish OR Dry Dish + Dal accompaniment",
-                "Flour Sync: Ayurvedic seasonal grain mix only"
-            ]);
             const [view, setView] = useState('plan');
-            const [cycle, setCycle] = useState('7d');
+            const [city, setCity] = useState("Delhi");
             const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-            const [editingMeal, setEditingMeal] = useState(null);
-            const [showHelp, setShowHelp] = useState(false);
+            const [cycle, setCycle] = useState(7);
+            const [directives, setDirectives] = useState([
+                "Lunch: Tiffin friendly Dry Veggie + Dal pair",
+                "Dinner: Gravy main with Roti explicitly",
+                "Ayurveda: Seasonal flour mix for Rotis",
+                "Language: Cook instructions in Hindi & English"
+            ]);
             
-            // Manual entry state
-            const [customDish, setCustomDish] = useState("");
-            const [customDishHi, setCustomDishHi] = useState("");
+            const [history, setHistory] = useState([]);
+            const [activeMenu, setActiveMenu] = useState(null);
+            const [dislikedItems, setDislikedItems] = useState(new Set());
+            const [showPrefs, setShowPrefs] = useState(false);
+            const [editingMeal, setEditingMeal] = useState(null);
 
             useEffect(() => {
-                const hasSeenHelp = localStorage.getItem('f603_has_seen_help');
-                if (!hasSeenHelp) {
-                    setShowHelp(true);
-                    localStorage.setItem('f603_has_seen_help', 'true');
-                }
+                const savedHistory = localStorage.getItem('t360_history_v11');
+                if (savedHistory) setHistory(JSON.parse(savedHistory));
+                const savedDislikes = localStorage.getItem('t360_dislikes_v11');
+                if (savedDislikes) setDislikedItems(new Set(JSON.parse(savedDislikes)));
+                const savedDirs = localStorage.getItem('t360_dirs_v11');
+                if (savedDirs) setDirectives(JSON.parse(savedDirs));
             }, []);
+
+            useEffect(() => {
+                localStorage.setItem('t360_history_v11', JSON.stringify(history));
+                localStorage.setItem('t360_dislikes_v11', JSON.stringify([...dislikedItems]));
+                localStorage.setItem('t360_dirs_v11', JSON.stringify(directives));
+            }, [history, dislikedItems, directives]);
 
             const getCurrentSeason = (cityInput) => {
                 const month = new Date().getMonth();
                 const c = cityInput.toLowerCase();
-                if (c.includes('mumbai') || c.includes('chennai') || c.includes('goa') || c.includes('kochi')) return "tropical";
-                if (c.includes('delhi') || c.includes('noida') || c.includes('gurgaon') || c.includes('jaipur')) {
-                    if (month >= 10 || month <= 2) return "winter"; 
-                    if (month >= 3 && month <= 5) return "summer";
-                    return "monsoon";
-                }
+                if (c.includes('mumbai') || c.includes('chennai') || c.includes('bangalore') || c.includes('bengaluru') || c.includes('kochi') || c.includes('goa')) return "tropical";
                 if (month >= 10 || month <= 1) return "winter";
                 if (month >= 2 && month <= 5) return "summer";
-                if (month >= 6 && month <= 8) return "monsoon";
-                return "spring";
+                return "monsoon";
             };
 
-            const syncGlobalResources = useCallback(async () => {
-                setIsSyncing(true);
-                await new Promise(resolve => setTimeout(resolve, 1200));
-                
-                const season = getCurrentSeason(city);
-                
-                const formattedInventory = Object.keys(GLOBAL_RESOURCES).map(key => ({
-                    id: key,
-                    title: key === 'veggies' ? `Seasonal Veggies (${city} - ${season.toUpperCase()})` : 
-                           key === 'breakfast' ? "Indian Breakfast Repository" : 
-                           key.charAt(0).toUpperCase() + key.slice(1),
-                    items: GLOBAL_RESOURCES[key]
-                        .filter(item => !item.season || item.season.includes(season))
-                        .map(item => ({
-                            ...item,
-                            selected: true,
-                            yt: `https://www.youtube.com/results?search_query=${item.name.replace(/\s+/g, '+')}+${item.source ? item.source.replace(/\s+/g, '+') : 'recipe'}`
-                        }))
-                }));
-                
-                setInventory(formattedInventory);
-                setIsSyncing(false);
-            }, [city]);
+            const getYTLink = (name) => `https://www.youtube.com/results?search_query=${name.replace(/\s+/g, '+')}+recipe+indian+style`;
 
-            useEffect(() => {
-                const savedPlan = localStorage.getItem('f603_live_v53');
-                const savedDirs = localStorage.getItem('f603_dirs_v53');
-                const savedCity = localStorage.getItem('f603_city_v53');
-                
-                if (savedPlan) {
-                    setMasterMenu(JSON.parse(savedPlan));
-                    setView('live');
-                }
-                if (savedDirs) setDirectives(JSON.parse(savedDirs));
-                if (savedCity) setCity(savedCity);
-            }, []);
+            const getPrepForDay = (dayObj) => {
+                const prepItems = [];
+                if (dayObj.breakfast?.prep) prepItems.push(dayObj.breakfast.prep);
+                if (dayObj.lunch?.dal?.prep) prepItems.push(dayObj.lunch.dal.prep);
+                if (dayObj.dinner?.main?.prep) prepItems.push(dayObj.dinner.main.prep);
+                if (dayObj.snack?.prep) prepItems.push(dayObj.snack.prep);
+                return prepItems;
+            };
 
-            useEffect(() => {
-                syncGlobalResources();
-            }, [syncGlobalResources]);
-
-            useEffect(() => {
-                if (masterMenu.length > 0) localStorage.setItem('f603_live_v53', JSON.stringify(masterMenu));
-                localStorage.setItem('f603_dirs_v53', JSON.stringify(directives));
-                localStorage.setItem('f603_city_v53', city);
-            }, [masterMenu, directives, city]);
-
-            const deployMenu = () => {
-                const days = parseInt(cycle);
-                const pools = inventory.reduce((acc, cat) => {
-                    acc[cat.id] = [...cat.items.filter(i => i.selected)].sort(() => Math.random() - 0.5);
-                    return acc;
-                }, {});
-
-                const getNext = (id, index, filterFn = null) => {
-                    let p = pools[id];
-                    if (filterFn) {
-                        p = p.filter(filterFn);
-                        if (p.length === 0) p = pools[id];
-                    }
-                    if (!p || p.length === 0) return { name: "N/A", hi: "N/A", yt: "#" };
-                    return p[index % p.length];
+            const generateMenu = () => {
+                const filterPool = (pool) => pool.filter(item => !dislikedItems.has(item.name));
+                const pools = {
+                    breakfast: filterPool(MASTER_REPO.breakfast),
+                    dry_veggies: filterPool(MASTER_REPO.dry_veggies),
+                    gravy_veggies: filterPool(MASTER_REPO.gravy_veggies),
+                    proteins: filterPool(MASTER_REPO.proteins),
+                    snacks: filterPool(MASTER_REPO.snacks),
+                    curd: filterPool(MASTER_REPO.curd),
+                    weekend: filterPool(MASTER_REPO.weekend)
                 };
 
                 const season = getCurrentSeason(city);
-                const currentFlour = AYURVEDA_FLOURS[season];
-                const riceIndices = Array.from({ length: days }).map((_, i) => i).sort(() => Math.random() - 0.5).slice(0, 3);
-
+                const flourMix = AYURVEDA_FLOURS[season];
                 const newMenu = [];
                 const start = new Date(startDate);
+                const riceDays = Array.from({ length: cycle }).map((_, i) => i).sort(() => Math.random() - 0.5).slice(0, 3);
 
-                for (let i = 0; i < days; i++) {
-                    const currentDate = new Date(start);
-                    currentDate.setDate(start.getDate() + i);
-                    const dayOfWeek = currentDate.getDay();
-                    const isWeekendMerge = (dayOfWeek === 5 || dayOfWeek === 6);
-                    
-                    const isDinnerGravy = Math.random() > 0.4; 
-
-                    let dinnerMain, dinnerDal;
-
-                    if (isDinnerGravy) {
-                        const useProteinAsMain = Math.random() > 0.5;
-                        if (useProteinAsMain) {
-                             dinnerMain = getNext('proteins', i + 5, item => item.style === 'gravy' || item.style === 'both');
-                        } else {
-                             dinnerMain = getNext('veggies', i + 5, item => item.style === 'gravy' || item.style === 'both');
-                        }
-                        dinnerDal = null;
-                    } else {
-                        dinnerMain = getNext('veggies', i + 5, item => item.style === 'dry' || item.style === 'both');
-                        dinnerDal = getNext('proteins', i + 6, item => item.style === 'gravy'); 
-                    }
+                for (let i = 0; i < cycle; i++) {
+                    const d = new Date(start);
+                    d.setDate(start.getDate() + i);
+                    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
 
                     newMenu.push({
-                        day: i + 1,
-                        date: currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                        weekDay: currentDate.toLocaleDateString('en-US', { weekday: 'long' }),
-                        isAshishEgg: [1, 3, 5].includes(dayOfWeek),
-                        isWeekendMerge,
-                        flour: currentFlour,
-                        side: riceIndices.includes(i) ? { en: "Rice", hi: "चावल" } : { en: "Roti", hi: "रोटी" },
-                        breakfast: getNext('breakfast', i),
-                        curd: getNext('curd', i),
-                        lunch: { veg: getNext('veggies', i), prot: getNext('proteins', i) },
-                        snack: getNext('snacks', i),
-                        weekendSnack: getNext('weekend', i),
-                        dinner: { 
-                            main: dinnerMain,
-                            isGravy: isDinnerGravy,
-                            dal: dinnerDal
-                        }
+                        id: i,
+                        date: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+                        dayName: d.toLocaleDateString('en-IN', { weekday: 'long' }),
+                        isWeekend,
+                        flourMix,
+                        lunchSide: riceDays.includes(i) ? { en: "Rice", hi: "चावल" } : { en: "Roti", hi: "रोटी" },
+                        dinnerSide: { en: "Roti", hi: "रोटी" },
+                        breakfast: pools.breakfast[i % pools.breakfast.length],
+                        lunch: {
+                            veg: pools.dry_veggies[i % pools.dry_veggies.length],
+                            dal: pools.proteins[i % pools.proteins.length]
+                        },
+                        curd: pools.curd[i % pools.curd.length],
+                        snack: isWeekend ? pools.weekend[i % pools.weekend.length] : pools.snacks[i % pools.snacks.length],
+                        dinner: { main: pools.gravy_veggies[i % pools.gravy_veggies.length] }
                     });
                 }
-                setMasterMenu(newMenu);
-                setView('live');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            };
 
-            const updateMeal = (dayIdx, key, newItem) => {
-                const updated = [...masterMenu];
-                const cleanName = newItem.name.replace(/\s+/g, '+');
-                const newYt = `https://www.youtube.com/results?search_query=${cleanName}+${newItem.source ? newItem.source.replace(/\s+/g, '+') : 'recipe'}`;
-                
-                const deepCopyMenu = JSON.parse(JSON.stringify(masterMenu));
-
-                if (key.includes('.')) {
-                    const [p, c] = key.split('.');
-                    deepCopyMenu[dayIdx][p][c] = { ...newItem, yt: newYt };
-                } else {
-                    deepCopyMenu[dayIdx][key] = { ...newItem, yt: newYt };
+                for (let i = 0; i < newMenu.length; i++) {
+                    const nextDay = newMenu[i + 1];
+                    newMenu[i].nextDayPrep = nextDay ? getPrepForDay(nextDay) : [];
                 }
-                setMasterMenu(deepCopyMenu);
+
+                const menuObj = { id: Date.now(), timestamp: new Date().toLocaleString(), city, season, days: newMenu };
+                setHistory([menuObj, ...history].slice(0, 10));
+                setActiveMenu(menuObj);
+                setView('live');
+            };
+
+            const updateMeal = (dayId, path, item) => {
+                const updated = JSON.parse(JSON.stringify(activeMenu));
+                const day = updated.days.find(d => d.id === dayId);
+                
+                if (path === 'breakfast') day.breakfast = item;
+                if (path === 'lunch.veg') day.lunch.veg = item;
+                if (path === 'lunch.dal') day.lunch.dal = item;
+                if (path === 'dinner.main') day.dinner.main = item;
+                if (path === 'snack') day.snack = item;
+
+                for (let i = 0; i < updated.days.length; i++) {
+                    const nextDay = updated.days[i + 1];
+                    updated.days[i].nextDayPrep = nextDay ? getPrepForDay(nextDay) : [];
+                }
+
+                setActiveMenu(updated);
+                setHistory(history.map(h => h.id === activeMenu.id ? updated : h));
                 setEditingMeal(null);
-                setCustomDish("");
-                setCustomDishHi("");
             };
 
-            const handleManualEntry = () => {
-                if (!customDish) return;
-                const newItem = {
-                    name: customDish,
-                    hi: customDishHi || customDish, 
-                    soft: false, 
-                    yt: `https://www.youtube.com/results?search_query=${customDish.replace(/\s+/g, '+')}+recipe`
-                };
-                updateMeal(editingMeal.dIdx, editingMeal.key, newItem);
+            const toggleDislike = (name) => {
+                const next = new Set(dislikedItems);
+                if (next.has(name)) next.delete(name); else next.add(name);
+                setDislikedItems(next);
             };
-
-            const handleAddDirective = () => {
-                const newDirective = prompt("Enter new rule:");
-                if (newDirective) setDirectives([...directives, newDirective]);
-            };
-
-            const handleDeleteDirective = (index) => {
-                if(confirm("Remove this rule?")) setDirectives(directives.filter((_, i) => i !== index));
-            };
-
-            if (isSyncing) return (
-                <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8 text-center animate-pulse">
-                    <div className="relative">
-                        <Icon name="RefreshCw" size={64} className="text-blue-600 animate-spin mb-8" />
-                        <Icon name="ChefHat" size={24} className="absolute inset-0 m-auto text-blue-400" />
-                    </div>
-                    <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Syncing {city} Inventory</h2>
-                    <p className="text-slate-500 font-bold mt-2">Checking Markets (Healthy Buddha/Farm Fresh) • Climate Logic • Ayurveda Flours</p>
-                </div>
-            );
 
             return (
-                <div className="pb-32 min-h-screen">
-                    <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex justify-between items-center shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-blue-600 p-2.5 rounded-2xl text-white shadow-xl shadow-blue-200">
-                                <Icon name="ChefHat" />
+                <div className="min-h-screen flex flex-col md:flex-row">
+                    {/* SIDEBAR */}
+                    <aside className="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col no-print h-screen md:sticky md:top-0">
+                        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="bg-blue-600 p-1.5 rounded-lg text-white shadow-lg shadow-blue-100">
+                                    <Icon name="ChefHat" size={18} />
+                                </div>
+                                <h1 className="font-black text-xs uppercase tracking-tighter">The360 Kitchen</h1>
                             </div>
-                            <div>
-                                <h1 className="text-lg font-black tracking-tighter uppercase leading-none">Indian Vegetarian <span className="text-blue-600">Menu Planner</span></h1>
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Master v5.5 • Guide Mode</span>
-                            </div>
+                            <button onClick={() => setShowPrefs(!showPrefs)} className={`p-2 rounded-lg transition-colors ${showPrefs ? 'bg-blue-50 text-blue-600' : 'text-slate-400 hover:text-blue-600'}`}>
+                                <Icon name="Settings" size={18} />
+                            </button>
                         </div>
-                        <div className="flex items-center gap-2">
-                             <button onClick={() => setShowHelp(true)} className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-blue-100 hover:text-blue-600 flex items-center justify-center transition-colors font-bold" title="Help Guide">?</button>
-                            {view === 'live' && (
-                                <button onClick={() => setView('plan')} className="text-xs font-black bg-slate-100 hover:bg-slate-200 text-slate-600 px-5 py-2.5 rounded-xl border border-slate-200 transition-all">
-                                    Adjust Plan
-                                </button>
-                            )}
-                        </div>
-                    </header>
 
-                    {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
-
-                    <main className="max-w-7xl mx-auto p-6 lg:p-10">
-                        {view === 'plan' ? (
-                            <div className="space-y-10 animate-in fade-in duration-700">
-                                {/* EDITABLE DIRECTIVES */}
-                                <section className="bg-white border-2 border-red-100 rounded-[2.5rem] p-8 lg:p-10 relative overflow-hidden shadow-sm">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h3 className="text-xs font-black uppercase text-red-800 tracking-[0.2em] flex items-center gap-3">
-                                            <Icon name="Settings2" size={18} /> Master Logic Directives <Tooltip text="Rules the AI follows to generate the menu. Edit these to customize constraints." />
-                                        </h3>
-                                        <button onClick={handleAddDirective} className="text-[10px] font-black uppercase bg-red-50 text-red-600 px-3 py-1 rounded-lg hover:bg-red-100 flex items-center gap-1">
-                                            <Icon name="Plus" size={12} /> Add Rule
-                                        </button>
-                                    </div>
-                                    <div className="space-y-3 relative z-10">
-                                        {directives.map((d, i) => (
-                                            <div key={i} className="flex items-center gap-3 group">
-                                                <div className="w-6 h-6 rounded-full bg-red-100 text-red-800 flex items-center justify-center font-black text-[10px] shrink-0">{i+1}</div>
-                                                <input value={d} onChange={(e) => { const next = [...directives]; next[i] = e.target.value; setDirectives(next); }} className="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-bold text-slate-700 focus:border-red-400 focus:ring-2 ring-red-100 outline-none transition-all shadow-sm" />
-                                                <button onClick={() => handleDeleteDirective(i)} className="text-slate-300 hover:text-red-500 transition-colors p-2"><Icon name="Trash2" size={16} /></button>
+                        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                            {!showPrefs ? (
+                                <div className="space-y-6">
+                                    <h2 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Recent Cycles</h2>
+                                    <div className="space-y-3">
+                                        {history.length === 0 ? <p className="text-[10px] text-slate-400 font-bold uppercase py-10 text-center border-2 border-dashed border-slate-100 rounded-2xl">Empty</p> : history.map(h => (
+                                            <div key={h.id} className={`history-card group relative p-4 rounded-2xl border transition-all cursor-pointer ${activeMenu?.id === h.id ? 'border-blue-200 bg-blue-50/30' : 'border-slate-100 bg-white'}`} onClick={() => {setActiveMenu(h); setView('live');}}>
+                                                <p className="text-[10px] font-black text-blue-600 uppercase tracking-tight">{h.city}</p>
+                                                <p className="text-xs font-bold text-slate-800">{h.timestamp.split(',')[0]}</p>
+                                                <button onClick={(e) => {e.stopPropagation(); setHistory(history.filter(item => item.id !== h.id));}} className="delete-btn opacity-0 absolute top-3 right-3 p-1 text-slate-300 hover:text-red-500 transition-opacity"><Icon name="Trash2" size={14} /></button>
                                             </div>
                                         ))}
                                     </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-6 animate-fade-in">
+                                    <h2 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                                        <Icon name="Filter" size={12} /> Preference Filter
+                                    </h2>
+                                    {Object.entries(MASTER_REPO).map(([key, items]) => (
+                                        <div key={key} className="space-y-2">
+                                            <p className="text-[9px] font-bold text-blue-500 uppercase px-1">{key.replace('_',' ')}</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {items.map(item => (
+                                                    <button 
+                                                        key={item.name}
+                                                        onClick={() => toggleDislike(item.name)}
+                                                        className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all ${dislikedItems.has(item.name) ? 'bg-red-50 border-red-100 text-red-400 line-through' : 'bg-slate-50 border-slate-100 text-slate-600'}`}
+                                                    >
+                                                        {item.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <button onClick={() => setShowPrefs(false)} className="w-full py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest">Back</button>
+                                </div>
+                            )}
+                        </div>
+                    </aside>
+
+                    {/* MAIN */}
+                    <main className="flex-1 p-6 md:p-12 lg:p-16 max-w-5xl mx-auto">
+                        {view === 'plan' ? (
+                            <div className="space-y-12 animate-fade-in">
+                                <div className="text-center">
+                                    <h2 className="text-5xl font-black tracking-tighter text-slate-900 mb-4">Indian Menu Planner</h2>
+                                    <p className="text-slate-500 font-medium">Authentic, Seasonal & Tiffin-Friendly Planning</p>
+                                </div>
+
+                                <section className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm space-y-6">
+                                    <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                                        <Icon name="ClipboardList" size={14} /> Master Logic Directives
+                                    </h3>
+                                    <div className="space-y-2">
+                                        {directives.map((d, i) => (
+                                            <div key={i} className="flex gap-2">
+                                                <input value={d} onChange={e => {const n = [...directives]; n[i] = e.target.value; setDirectives(n);}} className="flex-1 bg-slate-50 p-3 rounded-xl text-xs font-bold text-slate-700 outline-none border-2 border-transparent focus:border-blue-100" />
+                                                <button onClick={() => setDirectives(directives.filter((_, idx) => idx !== i))} className="p-3 text-slate-300 hover:text-red-500"><Icon name="X" size={16} /></button>
+                                            </div>
+                                        ))}
+                                        <button onClick={() => setDirectives([...directives, "New rule..."])} className="text-[9px] font-black uppercase text-blue-600 bg-blue-50 px-4 py-2 rounded-lg mt-2">+ Add Rule</button>
+                                    </div>
                                 </section>
 
-                                {/* CONFIG BAR */}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-8 lg:p-10 rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-100">
-                                    <div className="md:col-span-1">
-                                        <label className="text-[10px] font-black text-slate-400 tracking-[0.2em] mb-4 block uppercase flex items-center">
-                                            <span className="w-5 h-5 rounded bg-blue-100 text-blue-600 flex items-center justify-center mr-2 text-[10px]">1</span> City (Determines Season) <Tooltip text="Your city determines the climate logic (e.g. Winter in Delhi vs Tropical in Mumbai) to filter seasonal veggies." />
-                                        </label>
-                                        <div className="relative">
-                                            <input value={city} onChange={e => setCity(e.target.value)} className="w-full p-5 pl-12 rounded-3xl bg-slate-50 border-2 border-slate-100 font-black text-slate-700 outline-none focus:border-blue-500 transition-all" placeholder="Enter City..." />
-                                            <Icon name="MapPin" className="absolute left-4 top-5 text-blue-500" size={20} />
-                                        </div>
+                                <div className="grid md:grid-cols-3 gap-6">
+                                    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-2">
+                                        <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-2">City</label>
+                                        <input value={city} onChange={e => setCity(e.target.value)} className="w-full bg-slate-50 p-4 rounded-2xl font-black text-slate-800 outline-none" />
                                     </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-slate-400 tracking-[0.2em] mb-4 block uppercase flex items-center">
-                                            <span className="w-5 h-5 rounded bg-blue-100 text-blue-600 flex items-center justify-center mr-2 text-[10px]">2</span> Deployment Date
-                                        </label>
-                                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-5 rounded-3xl bg-slate-50 border-2 border-slate-100 font-black text-slate-700 outline-none focus:border-blue-500 transition-all" />
+                                    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-2">
+                                        <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-2">Start Date</label>
+                                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full bg-slate-50 p-4 rounded-2xl font-black text-slate-800 outline-none" />
                                     </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-slate-400 tracking-[0.2em] mb-4 block uppercase flex items-center">
-                                            <span className="w-5 h-5 rounded bg-blue-100 text-blue-600 flex items-center justify-center mr-2 text-[10px]">3</span> Cycle Duration
-                                        </label>
-                                        <div className="flex bg-slate-50 p-1.5 rounded-[2rem] border-2 border-slate-100">
-                                            {['1d', '3d', '7d', '14d'].map(t => (
-                                                <button key={t} onClick={() => setCycle(t)} className={`flex-1 py-4 rounded-[1.5rem] text-xs font-black transition-all ${cycle === t ? 'bg-white text-blue-600 shadow-xl' : 'text-slate-400'}`}>{t.toUpperCase()}</button>
-                                            ))}
+                                    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-2">
+                                        <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-2">Cycle</label>
+                                        <div className="flex bg-slate-50 p-1 rounded-xl">
+                                            {[3, 7, 10].map(n => <button key={n} onClick={() => setCycle(n)} className={`flex-1 py-3 rounded-lg text-xs font-black transition-all ${cycle === n ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}>{n}D</button>)}
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* INVENTORY */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                                    {inventory.map((cat) => (
-                                        <div key={cat.id} className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col h-[500px]">
-                                            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-50">
-                                                <h4 className="font-black text-slate-800 tracking-tight uppercase text-sm truncate pr-2 flex items-center gap-2" title={cat.title}>
-                                                    {cat.title} 
-                                                    {cat.id === 'veggies' && <Tooltip text="Items are filtered based on the current season in your selected City." />}
-                                                </h4>
-                                                <Icon name={cat.id === 'veggies' ? 'ShoppingBag' : cat.id === 'breakfast' ? 'ChefHat' : 'List'} size={18} className="text-slate-300" />
+                                <button onClick={generateMenu} className="w-full py-6 bg-blue-600 text-white rounded-[2.5rem] font-black uppercase tracking-widest shadow-2xl shadow-blue-200 hover:scale-[1.02] transition-all flex items-center justify-center gap-4 text-sm">
+                                    <Icon name="Zap" /> Generate Seasonal Menu
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-12 animate-fade-in">
+                                <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print">
+                                    <div>
+                                        <h2 className="text-4xl font-black tracking-tight uppercase leading-none">{activeMenu.city} Cycle</h2>
+                                        <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em] mt-2">{activeMenu.season.toUpperCase()} Season • Ayurvedic Flour Logic</p>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <button onClick={() => window.print()} className="bg-white border border-slate-200 p-4 rounded-2xl hover:bg-slate-50 shadow-sm"><Icon name="Printer" size={20} /></button>
+                                        <button onClick={() => setView('plan')} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest">Adjust</button>
+                                    </div>
+                                </header>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {activeMenu.days.map((day) => (
+                                        <div key={day.id} className="bg-white rounded-[3rem] border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden flex flex-col">
+                                            <div className={`px-8 py-5 flex justify-between items-center ${day.isWeekend ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-white'}`}>
+                                                <div>
+                                                    <p className="font-black uppercase tracking-tighter text-xl">{day.dayName}</p>
+                                                    <p className="text-[10px] font-bold opacity-60 uppercase">{day.date}</p>
+                                                </div>
+                                                {day.isWeekend && <Icon name="Sparkles" size={24} />}
                                             </div>
-                                            <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1 pr-2">
-                                                {cat.items.length > 0 ? cat.items.map((item, iIdx) => (
-                                                    <div key={item.name} className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between group ${item.selected ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-transparent opacity-50'}`}>
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                <p className="text-sm font-black text-slate-800 tracking-tight">{item.name}</p>
-                                                                {item.source && (
-                                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${
-                                                                        item.source === "Tarla Dalal" ? "bg-orange-100 text-orange-600" :
-                                                                        item.source === "Hebbar's Kitchen" ? "bg-red-100 text-red-600" :
-                                                                        item.source === "Bong Eats" ? "bg-yellow-100 text-yellow-700" :
-                                                                        "bg-green-100 text-green-700"
-                                                                    }`}>
-                                                                        {item.source === "Tarla Dalal" ? "TD" : 
-                                                                         item.source === "Hebbar's Kitchen" ? "HK" :
-                                                                         item.source === "Bong Eats" ? "BE" : "HB"}
-                                                                    </span>
-                                                                )}
+                                            <div className="p-8 space-y-8 flex-1">
+                                                <MealItem 
+                                                    icon="Zap" label="Breakfast" item={day.breakfast} 
+                                                    onEdit={() => setEditingMeal({ dayId: day.id, path: 'breakfast', pool: 'breakfast' })} 
+                                                    yt={getYTLink(day.breakfast.name)}
+                                                />
+                                                <div className="h-px bg-slate-50" />
+                                                <div className="space-y-4">
+                                                    <MealItem 
+                                                        icon="Sun" label="Lunch (Tiffin)" 
+                                                        item={{ name: `${day.lunch.veg.name} + ${day.lunch.dal.name}`, hi: `${day.lunch.veg.hi} & ${day.lunch.dal.hi}` }} 
+                                                        onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.veg', pool: 'dry_veggies' })} 
+                                                        yt={getYTLink(day.lunch.veg.name)}
+                                                        sub={`Curd: ${day.curd.name}`}
+                                                    />
+                                                    <SideItem side={day.lunchSide} flour={day.flourMix} />
+                                                </div>
+                                                <div className="h-px bg-slate-50" />
+                                                <MealItem 
+                                                    icon={day.isWeekend ? "PartyPopper" : "MessageSquare"} 
+                                                    label="Evening Snack" item={day.snack} 
+                                                    onEdit={() => setEditingMeal({ dayId: day.id, path: 'snack', pool: day.isWeekend ? 'weekend' : 'snacks' })} 
+                                                    yt={getYTLink(day.snack.name)}
+                                                />
+                                                <div className="h-px bg-slate-50" />
+                                                <div className="space-y-4">
+                                                    <MealItem 
+                                                        icon="Moon" label="Dinner (Main Course)" 
+                                                        item={day.dinner.main} 
+                                                        onEdit={() => setEditingMeal({ dayId: day.id, path: 'dinner.main', pool: 'gravy_veggies' })} 
+                                                        yt={getYTLink(day.dinner.main.name)}
+                                                    />
+                                                    <SideItem side={day.dinnerSide} flour={day.flourMix} />
+                                                </div>
+                                                
+                                                <div className="mt-8 pt-6 border-t border-slate-100 bg-orange-50/50 rounded-2xl p-5 border border-orange-100">
+                                                    <h4 className="text-[10px] font-black uppercase text-orange-600 tracking-widest flex items-center gap-2 mb-3">
+                                                        <Icon name="Bell" size={14} /> Cook: Prep for Tomorrow | कल की तैयारी
+                                                    </h4>
+                                                    <div className="space-y-3">
+                                                        {day.nextDayPrep && day.nextDayPrep.length > 0 ? day.nextDayPrep.map((prep, pIdx) => (
+                                                            <div key={pIdx} className="flex flex-col">
+                                                                <p className="text-xs font-bold text-slate-700 leading-tight">• {prep.en}</p>
+                                                                <p className="text-[10px] font-bold text-orange-600 mt-0.5 ml-3 leading-tight italic">{prep.hi}</p>
                                                             </div>
-                                                            <p className="text-[11px] text-slate-400 font-bold">{item.hi}</p>
-                                                        </div>
-                                                        <div className="flex items-center gap-3">
-                                                            {item.soft && <Icon name="Heart" size={12} className="text-pink-400 fill-pink-400" />}
-                                                            <input type="checkbox" checked={item.selected} onChange={() => { const next = [...inventory]; const catIdx = next.findIndex(c => c.id === cat.id); next[catIdx].items[iIdx].selected = !next[catIdx].items[iIdx].selected; setInventory(next); }} className="w-5 h-5 rounded-lg border-2 border-slate-200 text-blue-600 focus:ring-0 cursor-pointer" />
-                                                        </div>
+                                                        )) : <p className="text-xs text-slate-400 italic">No specific prep needed.</p>}
                                                     </div>
-                                                )) : (
-                                                    <div className="text-center py-10 text-slate-400 text-xs font-bold">No seasonal items found for this region</div>
-                                                )}
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 animate-in zoom-in-95 duration-500">
-                                {masterMenu.map((day, dIdx) => (
-                                    <div key={dIdx} className="bg-white rounded-[3.5rem] border border-slate-200 shadow-2xl shadow-slate-200/50 overflow-hidden flex flex-col hover:border-blue-200 transition-colors">
-                                        <div className="bg-slate-900 p-8 text-white">
-                                            <div className="flex justify-between items-start mb-6">
-                                                <div>
-                                                    <h3 className="text-2xl font-black tracking-tighter mb-1 uppercase">{day.weekDay}</h3>
-                                                    <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">{day.date} • {city}</p>
-                                                </div>
-                                                <div className="bg-white/10 px-5 py-2 rounded-2xl border border-white/10 text-[10px] font-black uppercase tracking-widest text-blue-200 flex flex-col items-end">
-                                                    <span>SIDE / साथ में</span>
-                                                    <span className="text-white text-xs">{day.side.en} / {day.side.hi}</span>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3 bg-white/5 p-4 rounded-2xl border border-white/5">
-                                                <Icon name="Leaf" size={16} className="text-green-400" />
-                                                <div className="flex-1">
-                                                     <p className="text-[9px] font-bold text-slate-300 uppercase">Ayurveda Flour / आयुर्वेदिक आटा</p>
-                                                     <div className="flex justify-between items-baseline">
-                                                        <span className="text-white font-bold text-xs">{day.flour.en}</span>
-                                                     </div>
-                                                     <span className="text-slate-400 text-[10px]">{day.flour.hi}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="divide-y divide-slate-100 flex-1">
-                                            <MealItem 
-                                                icon="Zap" color="orange" 
-                                                label="Breakfast / नाश्ता" 
-                                                name={day.breakfast.name} 
-                                                nameHi={day.breakfast.hi}
-                                                sub={day.isAshishEgg ? "Ashish: Egg Omelette (अंडा)" : "Regular (साधारण)"} 
-                                                yt={day.breakfast.yt} 
-                                                source={day.breakfast.source}
-                                                onEdit={() => setEditingMeal({ dIdx, key: 'breakfast', pool: 'breakfast' })} 
-                                            />
-                                            
-                                            <MealItem 
-                                                icon="Sun" color="green" 
-                                                label="Lunch / दोपहर का भोजन" 
-                                                name={`${day.lunch.veg.name} + ${day.lunch.prot.name}`} 
-                                                nameHi={`${day.lunch.veg.hi} + ${day.lunch.prot.hi}`}
-                                                sub={`Curd: ${day.curd.name} (${day.curd.hi})`} 
-                                                yt={day.lunch.veg.yt}
-                                                source={day.lunch.veg.source} 
-                                                onEdit={() => setEditingMeal({ dIdx, key: 'lunch.veg', pool: 'veggies' })} 
-                                            />
-                                            
-                                            {day.isWeekendMerge ? (
-                                                <div className="p-8 bg-pink-50/40 border-y border-pink-100 flex flex-col gap-5">
-                                                    <div className="flex justify-between items-center">
-                                                        <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.25em] flex items-center gap-2">
-                                                            <Icon name="PartyPopper" size={14} /> Weekend Spirits / वीकेंड स्पेशल
-                                                        </p>
-                                                    </div>
-                                                    <div className="flex justify-between items-center bg-white p-6 rounded-3xl border border-pink-100 shadow-sm">
-                                                        <div>
-                                                            <h4 className="font-black text-pink-900 text-xl tracking-tighter flex items-center gap-2">
-                                                                {day.weekendSnack.name}
-                                                                {day.weekendSnack.source && <span className="text-[8px] bg-pink-100 text-pink-600 px-1 rounded uppercase">{day.weekendSnack.source}</span>}
-                                                            </h4>
-                                                            <p className="text-sm font-bold text-pink-700 mt-1">{day.weekendSnack.hi}</p>
-                                                            <p className="text-[10px] font-bold text-pink-400 uppercase mt-2 italic">+ {day.dinner.main.name} ({day.dinner.main.hi})</p>
-                                                        </div>
-                                                        <div className="flex gap-3">
-                                                            <button onClick={() => setEditingMeal({ dIdx, key: 'weekendSnack', pool: 'weekend' })} className="w-12 h-12 bg-pink-50 rounded-2xl shadow-sm flex items-center justify-center text-pink-500 hover:bg-pink-100 transition-all"><Icon name="Edit3" size={20} /></button>
-                                                            <a href={day.weekendSnack.yt} target="_blank" className="w-12 h-12 bg-pink-600 text-white rounded-2xl shadow-xl shadow-pink-200 flex items-center justify-center hover:scale-105 transition-transform"><Icon name="Zap" size={20} /></a>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <React.Fragment>
-                                                    <MealItem 
-                                                        icon="MessageSquare" color="purple" 
-                                                        label="Evening Snack / शाम का नाश्ता" 
-                                                        name={day.snack.name} 
-                                                        nameHi={day.snack.hi}
-                                                        sub="Mix Grain / Ayurvedic Tea Acc." 
-                                                        yt={day.snack.yt} 
-                                                        source={day.snack.source}
-                                                        onEdit={() => setEditingMeal({ dIdx, key: 'snack', pool: 'snacks' })} 
-                                                    />
-                                                    <MealItem 
-                                                        icon="Moon" color="blue" 
-                                                        label="Dinner / रात का खाना" 
-                                                        name={day.dinner.main.name} 
-                                                        nameHi={day.dinner.main.hi}
-                                                        sub={day.dinner.dal ? `Dal: ${day.dinner.dal.name} (${day.dinner.dal.hi})` : "Gravy Meal (ग्रेवी)"} 
-                                                        yt={day.dinner.main.yt}
-                                                        source={day.dinner.main.source} 
-                                                        onEdit={() => setEditingMeal({ dIdx, key: 'dinner.main', pool: 'veggies' })} 
-                                                    />
-                                                </React.Fragment>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
                             </div>
                         )}
                     </main>
 
                     {/* EDIT MODAL */}
                     {editingMeal && (
-                        <div className="fixed inset-0 z-[1000] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in" onClick={() => setEditingMeal(null)}>
-                            <div className="bg-white w-full max-w-xl rounded-[3.5rem] p-10 max-h-[85vh] overflow-hidden flex flex-col shadow-2xl ring-1 ring-slate-200" onClick={e => e.stopPropagation()}>
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Swap Dish / डिश बदलें</h3>
-                                    <button onClick={() => setEditingMeal(null)} className="text-slate-400 hover:text-slate-600"><Icon name="X" /></button>
-                                </div>
-                                
-                                {/* MANUAL ENTRY SECTION */}
-                                <div className="mb-6 p-4 bg-slate-50 rounded-3xl border border-slate-100">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Custom Entry / मैनुअल एंट्री</label>
-                                    <div className="flex gap-2">
-                                        <input 
-                                            value={customDish} 
-                                            onChange={e => setCustomDish(e.target.value)} 
-                                            placeholder="Dish Name (e.g. Malai Kofta)" 
-                                            className="flex-1 p-3 rounded-2xl border border-slate-200 text-sm font-bold"
-                                        />
-                                        <input 
-                                            value={customDishHi} 
-                                            onChange={e => setCustomDishHi(e.target.value)} 
-                                            placeholder="Hindi (e.g. मलाई कोफ्ता)" 
-                                            className="flex-1 p-3 rounded-2xl border border-slate-200 text-sm font-bold"
-                                        />
-                                        <button onClick={handleManualEntry} className="bg-blue-600 text-white p-3 rounded-2xl font-bold"><Icon name="Plus" size={20}/></button>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1 pr-3">
-                                    {inventory.find(c => c.id === editingMeal.pool).items.filter(i => i.selected).map(item => (
+                        <div className="fixed inset-0 z-[1000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setEditingMeal(null)}>
+                            <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-10 max-h-[80vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+                                <h3 className="text-xl font-black mb-6 uppercase tracking-tight">Swap Item</h3>
+                                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
+                                    {MASTER_REPO[editingMeal.pool].filter(i => !dislikedItems.has(i.name)).map(item => (
                                         <button 
                                             key={item.name} 
-                                            onClick={() => updateMeal(editingMeal.dIdx, editingMeal.key, item)}
-                                            className="w-full text-left p-6 rounded-3xl bg-slate-50 hover:bg-blue-600 hover:text-white border-2 border-transparent hover:border-blue-400 transition-all group flex justify-between items-center"
+                                            onClick={() => updateMeal(editingMeal.dayId, editingMeal.path, item)}
+                                            className="w-full text-left p-5 rounded-2xl bg-slate-50 hover:bg-blue-600 hover:text-white transition-all flex justify-between items-center group"
                                         >
                                             <div>
-                                                <p className="text-lg font-black tracking-tight">{item.name}</p>
-                                                <p className="text-sm font-bold opacity-80 uppercase">{item.hi}</p>
-                                                <div className="flex gap-2 mt-1">
-                                                    {item.style && <span className="text-[10px] uppercase border px-1 rounded inline-block opacity-60">{item.style}</span>}
-                                                    {item.source && <span className="text-[10px] uppercase bg-blue-100 text-blue-700 px-1 rounded inline-block font-bold">{item.source}</span>}
-                                                </div>
+                                                <p className="font-black text-sm">{item.name}</p>
+                                                <p className="text-[10px] font-bold opacity-60 uppercase">{item.hi}</p>
                                             </div>
-                                            <Icon name="ChevronRight" size={20} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            <Icon name="ChevronRight" size={16} className="opacity-0 group-hover:opacity-100" />
                                         </button>
                                     ))}
                                 </div>
-                                <button onClick={() => setEditingMeal(null)} className="mt-8 w-full py-5 rounded-3xl bg-slate-100 text-slate-400 font-black tracking-widest uppercase text-xs">Cancel</button>
+                                <button onClick={() => setEditingMeal(null)} className="mt-8 py-4 bg-slate-100 text-slate-400 font-black rounded-xl uppercase text-[10px]">Cancel</button>
                             </div>
                         </div>
                     )}
-
-                    <footer className="fixed bottom-0 left-0 right-0 p-8 bg-white/90 backdrop-blur-2xl border-t border-slate-100 z-50 flex justify-center gap-6 shadow-2xl">
-                        {view === 'plan' ? (
-                            <button onClick={deployMenu} className="w-full max-w-lg bg-blue-600 hover:bg-blue-700 text-white font-black py-5 px-10 rounded-[2.5rem] shadow-2xl shadow-blue-200 flex items-center justify-center gap-4 transition-all active:scale-95 group animate-[pulse_3s_infinite]">
-                                <Icon name="Zap" size={24} className="group-hover:animate-pulse" /> DEPLOY MASTER CYCLE
-                            </button>
-                        ) : (
-                            <React.Fragment>
-                                <button onClick={() => {
-                                    let text = `*INDIAN VEG MENU / भारतीय शाकाहारी मेनू*\n${city} • ${startDate}\n--------------------------\n`;
-                                    masterMenu.forEach(d => {
-                                        text += `\n*${d.weekDay}* (Day ${d.day})\n`;
-                                        text += `🌅 Brk/नाश्ता: ${d.breakfast.name} (${d.breakfast.hi})\n`;
-                                        text += `☀️ Lun/दोपहर: ${d.lunch.veg.name} (${d.lunch.veg.hi}) + ${d.lunch.prot.name} (${d.lunch.prot.hi})\n`;
-                                        text += `   Side: ${d.side.en} / ${d.side.hi}\n`;
-                                        if (d.isWeekendMerge) {
-                                            text += `🎉 Special: ${d.weekendSnack.name} (${d.weekendSnack.hi})\n`;
-                                        } else {
-                                            text += `🌙 Din/रात: ${d.dinner.main.name} (${d.dinner.main.hi})\n`;
-                                        }
-                                    });
-                                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
-                                }} className="flex-1 max-w-sm bg-green-500 hover:bg-green-600 text-white font-black py-5 px-8 rounded-[2rem] flex items-center justify-center gap-3 shadow-2xl shadow-green-200 active:scale-95 transition-transform">
-                                    <Icon name="Send" size={20} /> SHARE / भेजें
-                                </button>
-                                <button onClick={() => window.print()} className="bg-slate-800 hover:bg-slate-900 text-white font-black p-5 rounded-[2rem] shadow-xl transition-all active:scale-95">
-                                    <Icon name="Printer" size={24} />
-                                </button>
-                                <button onClick={() => { if(confirm("Start fresh?")) { localStorage.clear(); location.reload(); } }} className="bg-red-50 hover:bg-red-100 text-red-600 p-5 rounded-[2rem] border-2 border-red-100 transition-all active:scale-95">
-                                    <Icon name="RotateCcw" size={24} />
-                                </button>
-                            </React.Fragment>
-                        )}
-                    </footer>
                 </div>
             );
         };
 
-        const MealItem = ({ icon, color, label, name, nameHi, sub, yt, source, onEdit }) => {
-            const colorMap = {
-                orange: { bg: 'bg-orange-100', text: 'text-orange-600', hover: 'hover:bg-orange-50' },
-                green: { bg: 'bg-green-100', text: 'text-green-600', hover: 'hover:bg-green-50' },
-                purple: { bg: 'bg-purple-100', text: 'text-purple-600', hover: 'hover:bg-purple-50' },
-                blue: { bg: 'bg-blue-100', text: 'text-blue-600', hover: 'hover:bg-blue-50' }
-            };
-            const theme = colorMap[color];
-
-            return (
-                <div className={`p-8 flex justify-between items-center group transition-all ${theme.hover}`}>
-                    <div className="flex items-center gap-6">
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${theme.bg} ${theme.text} shadow-sm group-hover:scale-110 transition-transform`}>
-                            <Icon name={icon} size={28} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{label}</p>
-                            <h4 className="font-black text-slate-900 text-xl tracking-tighter leading-tight flex items-center gap-2">
-                                {name}
-                                {source && <span className={`text-[8px] px-1.5 py-0.5 rounded uppercase ${
-                                    source === "Tarla Dalal" ? "bg-orange-100 text-orange-600" :
-                                    source === "Hebbar's Kitchen" ? "bg-red-100 text-red-600" :
-                                    source === "Bong Eats" ? "bg-yellow-100 text-yellow-700" :
-                                    "bg-green-100 text-green-700"
-                                }`}>{source === "Tarla Dalal" ? "TD" : source === "Hebbar's Kitchen" ? "HK" : source === "Bong Eats" ? "BE" : "HB"}</span>}
-                            </h4>
-                            <p className="text-sm font-bold text-slate-600 mt-1">{nameHi}</p>
-                            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-tight mt-1">{sub}</p>
-                        </div>
+        const MealItem = ({ icon, label, item, onEdit, yt, sub }) => (
+            <div className="flex items-center justify-between group">
+                <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center shrink-0">
+                        <Icon name={icon} size={20} />
                     </div>
-                    <div className="flex items-center gap-4">
-                        <button onClick={onEdit} className="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-white hover:shadow-lg transition-all opacity-0 group-hover:opacity-100">
-                            <Icon name="Edit3" size={20} />
-                        </button>
-                        <a href={yt} target="_blank" rel="noreferrer" className="w-12 h-12 rounded-2xl flex items-center justify-center bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all shadow-sm">
-                            <Icon name="Youtube" size={24} />
-                        </a>
+                    <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
+                        <p className="font-black text-slate-800 leading-tight text-sm">{item.name}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight mt-0.5">{item.hi}</p>
+                        {sub && <p className="text-[9px] font-bold text-blue-500 uppercase mt-1 italic leading-tight">{sub}</p>}
                     </div>
                 </div>
-            );
-        };
+                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={onEdit} className="w-10 h-10 rounded-lg bg-slate-100 text-slate-400 hover:text-blue-600 hover:bg-white transition-all flex items-center justify-center no-print">
+                        <Icon name="Edit3" size={16} />
+                    </button>
+                    <a href={yt} target="_blank" className="w-10 h-10 rounded-lg bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center no-print">
+                        <Icon name="Youtube" size={18} />
+                    </a>
+                </div>
+            </div>
+        );
+
+        const SideItem = ({ side, flour }) => (
+            <div className="flex items-center gap-4 ml-14 bg-slate-50 border border-slate-100 rounded-2xl p-4 shadow-sm animate-fade-in relative overflow-hidden group">
+                <div className="w-1 h-full bg-blue-500 absolute left-0 top-0" />
+                <div className="flex flex-col flex-1">
+                    <div className="flex items-baseline gap-2 mb-1">
+                        <p className="font-black text-slate-800 text-sm tracking-tight uppercase leading-none">{side.en}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase italic">/ {side.hi}</p>
+                    </div>
+                    {side.en === "Roti" && (
+                        <div className="flex flex-col mt-1 border-t border-slate-200 pt-1">
+                            <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest leading-none mb-1">Seasonal Flour | आटे का मिश्रण</p>
+                            <p className="text-[10px] font-black text-slate-700 leading-tight">{flour.en}</p>
+                            <p className="text-[9px] font-bold text-slate-400 mt-0.5 leading-tight italic">{flour.hi}</p>
+                        </div>
+                    )}
+                </div>
+                <div className="bg-white p-2 rounded-lg shadow-sm">
+                    <Icon name={side.en === "Rice" ? "Database" : "Disc"} size={14} className="text-slate-200" />
+                </div>
+            </div>
+        );
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
