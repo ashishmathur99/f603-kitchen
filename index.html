@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The360 Kitchen | Ayurvedic Cook's Edition v11.0</title>
+    <title>The360 Kitchen | Master Engine v11.5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -19,6 +19,8 @@
         .history-card:hover .delete-btn { opacity: 1; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        .pulse-light { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 selection:bg-blue-100">
@@ -38,6 +40,8 @@
             }, [name, size, className]);
             return <span ref={iconRef} className="inline-flex items-center justify-center" />;
         };
+
+        const getYTLink = (name) => `https://www.youtube.com/results?search_query=${name.replace(/\s+/g, '+')}+recipe+indian+style`;
 
         const AYURVEDA_FLOURS = {
             winter: { en: "Bajra & Makka (Heating)", hi: "बाजरा और मक्का (गरम तासीर)" },
@@ -65,7 +69,8 @@
                 { name: "Baingan Bharta", hi: "बैंगन भरता", prep: { en: "Roast brinjal tonight", hi: "आज रात बैंगन भून लें" } },
                 { name: "Arbi Masala", hi: "अरबी मसाला" },
                 { name: "Karela Fry", hi: "करेला फ्राई", prep: { en: "Salt & squeeze bitter gourd", hi: "करेले में नमक लगाकर निचोड़ दें" } },
-                { name: "Cabbage Matar", hi: "पत्ता गोभी मटर" }
+                { name: "Cabbage Matar", hi: "पत्ता गोभी मटर" },
+                { name: "Turai (Dry)", hi: "तोरई सुखी" }
             ],
             gravy_veggies: [
                 { name: "Matar Paneer", hi: "मटर पनीर" },
@@ -73,16 +78,17 @@
                 { name: "Dum Aloo", hi: "दम आलू", prep: { en: "Boil small potatoes", hi: "छोटे आलू उबाल लें" } },
                 { name: "Palak Paneer", hi: "पालक पनीर", prep: { en: "Blanch & puree spinach", hi: "पालक उबालकर प्यूरी बना लें" } },
                 { name: "Mushroom Masala", hi: "मशरूम मसाला" },
-                { name: "Paneer Butter Masala", hi: "पनीर बटर मसाला" }
+                { name: "Paneer Butter Masala", hi: "पनीर बटर मसाला" },
+                { name: "Malai Kofta", hi: "मलाई कोफ्ता", prep: { en: "Prepare kofta balls", hi: "कोफ्ते के गोले तैयार करें" } }
             ],
-            proteins: [
-                { name: "Dal Tadka (Arhar)", hi: "दाल तड़का", prep: { en: "Soak Arhar Dal for 30 mins", hi: "अरहर दाल 30 मिनट के लिए भिगो दें" } },
+            dals: [
+                { name: "Dual Dal Pair (Arhar + Moong Masoor)", hi: "जुगलबंदी दाल (अरहर + मूंग मसूर)", prep: { en: "Soak both Arhar and Moong-Masoor Dals tonight", hi: "आज रात अरहर और मूंग-मसूर दोनों दालें भिगो दें" } }
+            ],
+            heavy_proteins: [
                 { name: "Dal Makhani", hi: "दाल मखनी", prep: { en: "Soak Black Urad tonight", hi: "आज रात काली उड़द भिगो दें" } },
                 { name: "Rajma Masala", hi: "राजमा", prep: { en: "Soak Rajma tonight", hi: "आज रात राजमा भिगो दें" } },
                 { name: "Chole (Kabuli Chana)", hi: "छोले", prep: { en: "Soak Kabuli Chana tonight", hi: "आज रात काबुली चना भिगो दें" } },
-                { name: "Kala Chana Curry", hi: "काला चना", prep: { en: "Soak Kala Chana tonight", hi: "आज रात काला चना भिगो दें" } },
-                { name: "Panchmel Dal", hi: "पंचमेल दाल", prep: { en: "Mix & soak 5 dals", hi: "5 दालें मिलाकर भिगो दें" } },
-                { name: "Chana Dal with Lauki", hi: "चना दाल लौकी", prep: { en: "Soak Chana Dal for 1 hour", hi: "चना दाल 1 घंटे के लिए भिगो दें" } }
+                { name: "Kala Chana Curry", hi: "काला चना", prep: { en: "Soak Kala Chana tonight", hi: "आज रात काला चना भिगो दें" } }
             ],
             snacks: [
                 { name: "Roasted Makhana", hi: "मखाना" },
@@ -90,16 +96,18 @@
                 { name: "Roasted Peanuts", hi: "भुनी मूंगफली" },
                 { name: "Murmura Namkeen", hi: "मुरमुरा" }
             ],
+            special_meals: [
+                { name: "Chole Bhature", hi: "छोले भटूरे", prep: { en: "Soak Chole & prepare dough", hi: "छोले भिगोएं और आटा तैयार करें" } },
+                { name: "Pav Bhaji", hi: "पाव भाजी", prep: { en: "Boil mix veggies tonight", hi: "आज रात मिक्स सब्जियां उबाल लें" } },
+                { name: "Veg Biryani", hi: "वेज बिरयानी", prep: { en: "Soak Basmati Rice", hi: "बासमती चावल भिगो दें" } },
+                { name: "Paneer Tikka + Rumali Roti", hi: "पनीर टिक्का रुमाली रोटी", prep: { en: "Marinate Paneer", hi: "पनीर को मैरीनेट करें" } },
+                { name: "Dal Baati", hi: "दाल बाटी", prep: { en: "Prepare baati dough", hi: "बाटी का आटा तैयार करें" } },
+                { name: "Misal Pav", hi: "मिसल पाव", prep: { en: "Soak moth beans tonight", hi: "आज रात मठ भिगो दें" } }
+            ],
             curd: [
                 { name: "Plain Curd", hi: "दही" },
                 { name: "Boondi Raita", hi: "बूंदी रायता" },
                 { name: "Mix Veg Raita", hi: "वेजिटेबल रायता" }
-            ],
-            weekend: [
-                { name: "Pav Bhaji", hi: "पाव भाजी", prep: { en: "Boil mix veggies tonight", hi: "आज रात मिक्स सब्जियां उबाल लें" } },
-                { name: "Chole Bhature", hi: "छोले भटूरे", prep: { en: "Soak Chole & prepare dough", hi: "छोले भिगोएं और आटा तैयार करें" } },
-                { name: "Veg Biryani", hi: "वेज बिरयानी", prep: { en: "Soak Basmati Rice", hi: "बासमती चावल भिगो दें" } },
-                { name: "Paneer Tikka", hi: "पनीर टिक्का", prep: { en: "Marinate Paneer", hi: "पनीर को मैरीनेट करें" } }
             ]
         };
 
@@ -108,11 +116,12 @@
             const [city, setCity] = useState("Delhi");
             const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
             const [cycle, setCycle] = useState(7);
+            const [isSyncing, setIsSyncing] = useState(true);
             const [directives, setDirectives] = useState([
-                "Lunch: Tiffin friendly Dry Veggie + Dal pair",
-                "Dinner: Gravy main with Roti explicitly",
-                "Ayurveda: Seasonal flour mix for Rotis",
-                "Language: Cook instructions in Hindi & English"
+                "Lunch: MUST include both Arhar and Moong-Masoor dal pair",
+                "Friday Fun: Heavy snacks in evening with NO separate Dinner",
+                "Saturday: Special Meal for Lunch (Chole Bhature/Biryani etc)",
+                "Ayurveda: Seasonal flour mix for Rotis"
             ]);
             
             const [history, setHistory] = useState([]);
@@ -122,85 +131,98 @@
             const [editingMeal, setEditingMeal] = useState(null);
 
             useEffect(() => {
-                const savedHistory = localStorage.getItem('t360_history_v11');
-                if (savedHistory) setHistory(JSON.parse(savedHistory));
-                const savedDislikes = localStorage.getItem('t360_dislikes_v11');
-                if (savedDislikes) setDislikedItems(new Set(JSON.parse(savedDislikes)));
-                const savedDirs = localStorage.getItem('t360_dirs_v11');
-                if (savedDirs) setDirectives(JSON.parse(savedDirs));
+                const syncData = setTimeout(() => {
+                    const savedHistory = localStorage.getItem('t360_history_v11_5');
+                    if (savedHistory) setHistory(JSON.parse(savedHistory));
+                    const savedDislikes = localStorage.getItem('t360_dislikes_v11_5');
+                    if (savedDislikes) setDislikedItems(new Set(JSON.parse(savedDislikes)));
+                    const savedDirs = localStorage.getItem('t360_dirs_v11_5');
+                    if (savedDirs) setDirectives(JSON.parse(savedDirs));
+                    setIsSyncing(false);
+                }, 800);
+                return () => clearTimeout(syncData);
             }, []);
 
             useEffect(() => {
-                localStorage.setItem('t360_history_v11', JSON.stringify(history));
-                localStorage.setItem('t360_dislikes_v11', JSON.stringify([...dislikedItems]));
-                localStorage.setItem('t360_dirs_v11', JSON.stringify(directives));
-            }, [history, dislikedItems, directives]);
+                if (!isSyncing) {
+                    localStorage.setItem('t360_history_v11_5', JSON.stringify(history));
+                    localStorage.setItem('t360_dislikes_v11_5', JSON.stringify([...dislikedItems]));
+                    localStorage.setItem('t360_dirs_v11_5', JSON.stringify(directives));
+                }
+            }, [history, dislikedItems, directives, isSyncing]);
 
-            const getCurrentSeason = (cityInput) => {
-                const month = new Date().getMonth();
-                const c = cityInput.toLowerCase();
-                if (c.includes('mumbai') || c.includes('chennai') || c.includes('bangalore') || c.includes('bengaluru') || c.includes('kochi') || c.includes('goa')) return "tropical";
-                if (month >= 10 || month <= 1) return "winter";
-                if (month >= 2 && month <= 5) return "summer";
-                return "monsoon";
-            };
-
-            const getYTLink = (name) => `https://www.youtube.com/results?search_query=${name.replace(/\s+/g, '+')}+recipe+indian+style`;
-
-            const getPrepForDay = (dayObj) => {
-                const prepItems = [];
-                if (dayObj.breakfast?.prep) prepItems.push(dayObj.breakfast.prep);
-                if (dayObj.lunch?.dal?.prep) prepItems.push(dayObj.lunch.dal.prep);
-                if (dayObj.dinner?.main?.prep) prepItems.push(dayObj.dinner.main.prep);
-                if (dayObj.snack?.prep) prepItems.push(dayObj.snack.prep);
-                return prepItems;
-            };
+            const getShuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
 
             const generateMenu = () => {
                 const filterPool = (pool) => pool.filter(item => !dislikedItems.has(item.name));
+                
                 const pools = {
-                    breakfast: filterPool(MASTER_REPO.breakfast),
-                    dry_veggies: filterPool(MASTER_REPO.dry_veggies),
-                    gravy_veggies: filterPool(MASTER_REPO.gravy_veggies),
-                    proteins: filterPool(MASTER_REPO.proteins),
-                    snacks: filterPool(MASTER_REPO.snacks),
-                    curd: filterPool(MASTER_REPO.curd),
-                    weekend: filterPool(MASTER_REPO.weekend)
+                    breakfast: getShuffle(filterPool(MASTER_REPO.breakfast)),
+                    dry_veggies: getShuffle(filterPool(MASTER_REPO.dry_veggies)),
+                    gravy_veggies: getShuffle(filterPool(MASTER_REPO.gravy_veggies)),
+                    dals: MASTER_REPO.dals, 
+                    heavy_proteins: getShuffle(filterPool(MASTER_REPO.heavy_proteins)),
+                    snacks: getShuffle(filterPool(MASTER_REPO.snacks)),
+                    special_meals: getShuffle(filterPool(MASTER_REPO.special_meals)),
+                    curd: getShuffle(filterPool(MASTER_REPO.curd))
                 };
 
-                const season = getCurrentSeason(city);
+                const season = (city.toLowerCase().match(/mumbai|chennai|bangalore|bengaluru|kochi|goa/)) ? "tropical" : 
+                               ([10, 11, 0, 1].includes(new Date().getMonth())) ? "winter" : 
+                               ([2, 3, 4, 5].includes(new Date().getMonth())) ? "summer" : "monsoon";
+
                 const flourMix = AYURVEDA_FLOURS[season];
                 const newMenu = [];
                 const start = new Date(startDate);
-                const riceDays = Array.from({ length: cycle }).map((_, i) => i).sort(() => Math.random() - 0.5).slice(0, 3);
 
                 for (let i = 0; i < cycle; i++) {
                     const d = new Date(start);
                     d.setDate(start.getDate() + i);
-                    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                    const dayOfWeek = d.getDay(); // 0=Sun, 1=Mon... 5=Fri, 6=Sat
+
+                    const isFriday = dayOfWeek === 5;
+                    const isSaturday = dayOfWeek === 6;
 
                     newMenu.push({
                         id: i,
                         date: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
                         dayName: d.toLocaleDateString('en-IN', { weekday: 'long' }),
-                        isWeekend,
+                        isFriday,
+                        isSaturday,
                         flourMix,
-                        lunchSide: riceDays.includes(i) ? { en: "Rice", hi: "चावल" } : { en: "Roti", hi: "रोटी" },
+                        lunchSide: { en: "Roti", hi: "रोटी" }, 
                         dinnerSide: { en: "Roti", hi: "रोटी" },
                         breakfast: pools.breakfast[i % pools.breakfast.length],
-                        lunch: {
+                        lunch: isSaturday ? {
+                            isSpecial: true,
+                            main: pools.special_meals[i % pools.special_meals.length]
+                        } : {
+                            isSpecial: false,
                             veg: pools.dry_veggies[i % pools.dry_veggies.length],
-                            dal: pools.proteins[i % pools.proteins.length]
+                            dal: pools.dals[0] 
                         },
                         curd: pools.curd[i % pools.curd.length],
-                        snack: isWeekend ? pools.weekend[i % pools.weekend.length] : pools.snacks[i % pools.snacks.length],
-                        dinner: { main: pools.gravy_veggies[i % pools.gravy_veggies.length] }
+                        snack: isFriday ? pools.special_meals[i % pools.special_meals.length] : pools.snacks[i % pools.snacks.length],
+                        dinner: isFriday ? null : { 
+                            main: Math.random() > 0.4 
+                                ? pools.gravy_veggies[i % pools.gravy_veggies.length] 
+                                : pools.heavy_proteins[i % pools.heavy_proteins.length]
+                        }
                     });
                 }
 
+                // Add prep notes from the *next* day's items
                 for (let i = 0; i < newMenu.length; i++) {
                     const nextDay = newMenu[i + 1];
-                    newMenu[i].nextDayPrep = nextDay ? getPrepForDay(nextDay) : [];
+                    const preps = [];
+                    if (nextDay) {
+                        if (nextDay.breakfast.prep) preps.push(nextDay.breakfast.prep);
+                        if (!nextDay.lunch.isSpecial && nextDay.lunch.dal.prep) preps.push(nextDay.lunch.dal.prep);
+                        if (nextDay.lunch.isSpecial && nextDay.lunch.main.prep) preps.push(nextDay.lunch.main.prep);
+                        if (nextDay.dinner?.main?.prep) preps.push(nextDay.dinner.main.prep);
+                        if (nextDay.snack?.prep) preps.push(nextDay.snack.prep);
+                    }
+                    newMenu[i].nextDayPrep = preps;
                 }
 
                 const menuObj = { id: Date.now(), timestamp: new Date().toLocaleString(), city, season, days: newMenu };
@@ -212,41 +234,34 @@
             const updateMeal = (dayId, path, item) => {
                 const updated = JSON.parse(JSON.stringify(activeMenu));
                 const day = updated.days.find(d => d.id === dayId);
-                
-                if (path === 'breakfast') day.breakfast = item;
-                if (path === 'lunch.veg') day.lunch.veg = item;
-                if (path === 'lunch.dal') day.lunch.dal = item;
-                if (path === 'dinner.main') day.dinner.main = item;
-                if (path === 'snack') day.snack = item;
-
-                for (let i = 0; i < updated.days.length; i++) {
-                    const nextDay = updated.days[i + 1];
-                    updated.days[i].nextDayPrep = nextDay ? getPrepForDay(nextDay) : [];
-                }
-
+                const keys = path.split('.');
+                if (keys.length === 1) day[keys[0]] = item;
+                else day[keys[0]][keys[1]] = item;
                 setActiveMenu(updated);
                 setHistory(history.map(h => h.id === activeMenu.id ? updated : h));
                 setEditingMeal(null);
             };
 
-            const toggleDislike = (name) => {
-                const next = new Set(dislikedItems);
-                if (next.has(name)) next.delete(name); else next.add(name);
-                setDislikedItems(next);
-            };
+            if (isSyncing) return (
+                <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+                    <div className="bg-blue-600 p-4 rounded-3xl text-white mb-6 shadow-2xl pulse-light">
+                        <Icon name="ChefHat" size={40} />
+                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Syncing Master v11.5</p>
+                </div>
+            );
 
             return (
                 <div className="min-h-screen flex flex-col md:flex-row">
-                    {/* SIDEBAR */}
                     <aside className="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col no-print h-screen md:sticky md:top-0">
                         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <div className="bg-blue-600 p-1.5 rounded-lg text-white shadow-lg shadow-blue-100">
+                                <div className="bg-blue-600 p-1.5 rounded-lg text-white shadow-lg">
                                     <Icon name="ChefHat" size={18} />
                                 </div>
                                 <h1 className="font-black text-xs uppercase tracking-tighter">The360 Kitchen</h1>
                             </div>
-                            <button onClick={() => setShowPrefs(!showPrefs)} className={`p-2 rounded-lg transition-colors ${showPrefs ? 'bg-blue-50 text-blue-600' : 'text-slate-400 hover:text-blue-600'}`}>
+                            <button onClick={() => setShowPrefs(!showPrefs)} className={`p-2 rounded-lg transition-colors ${showPrefs ? 'bg-blue-50 text-blue-600' : 'text-slate-400'}`}>
                                 <Icon name="Settings" size={18} />
                             </button>
                         </div>
@@ -257,7 +272,7 @@
                                     <h2 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Recent Cycles</h2>
                                     <div className="space-y-3">
                                         {history.length === 0 ? <p className="text-[10px] text-slate-400 font-bold uppercase py-10 text-center border-2 border-dashed border-slate-100 rounded-2xl">Empty</p> : history.map(h => (
-                                            <div key={h.id} className={`history-card group relative p-4 rounded-2xl border transition-all cursor-pointer ${activeMenu?.id === h.id ? 'border-blue-200 bg-blue-50/30' : 'border-slate-100 bg-white'}`} onClick={() => {setActiveMenu(h); setView('live');}}>
+                                            <div key={h.id} className={`history-card group relative p-4 rounded-2xl border transition-all cursor-pointer ${activeMenu?.id === h.id ? 'border-blue-200 bg-blue-50/30 shadow-sm' : 'border-slate-100 bg-white'}`} onClick={() => {setActiveMenu(h); setView('live');}}>
                                                 <p className="text-[10px] font-black text-blue-600 uppercase tracking-tight">{h.city}</p>
                                                 <p className="text-xs font-bold text-slate-800">{h.timestamp.split(',')[0]}</p>
                                                 <button onClick={(e) => {e.stopPropagation(); setHistory(history.filter(item => item.id !== h.id));}} className="delete-btn opacity-0 absolute top-3 right-3 p-1 text-slate-300 hover:text-red-500 transition-opacity"><Icon name="Trash2" size={14} /></button>
@@ -277,7 +292,11 @@
                                                 {items.map(item => (
                                                     <button 
                                                         key={item.name}
-                                                        onClick={() => toggleDislike(item.name)}
+                                                        onClick={() => {
+                                                            const next = new Set(dislikedItems);
+                                                            if (next.has(item.name)) next.delete(item.name); else next.add(item.name);
+                                                            setDislikedItems(next);
+                                                        }}
                                                         className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all ${dislikedItems.has(item.name) ? 'bg-red-50 border-red-100 text-red-400 line-through' : 'bg-slate-50 border-slate-100 text-slate-600'}`}
                                                     >
                                                         {item.name}
@@ -292,27 +311,26 @@
                         </div>
                     </aside>
 
-                    {/* MAIN */}
                     <main className="flex-1 p-6 md:p-12 lg:p-16 max-w-5xl mx-auto">
                         {view === 'plan' ? (
                             <div className="space-y-12 animate-fade-in">
                                 <div className="text-center">
-                                    <h2 className="text-5xl font-black tracking-tighter text-slate-900 mb-4">Indian Menu Planner</h2>
-                                    <p className="text-slate-500 font-medium">Authentic, Seasonal & Tiffin-Friendly Planning</p>
+                                    <h2 className="text-5xl font-black tracking-tighter text-slate-900 mb-4 leading-none">Indian Menu Planner</h2>
+                                    <p className="text-slate-500 font-medium italic">Friday Fun Night • Saturday Special • Dual Dal</p>
                                 </div>
 
                                 <section className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm space-y-6">
                                     <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                                        <Icon name="ClipboardList" size={14} /> Master Logic Directives
+                                        <Icon name="Activity" size={14} className="text-blue-500" /> Editable System Directives
                                     </h3>
                                     <div className="space-y-2">
                                         {directives.map((d, i) => (
                                             <div key={i} className="flex gap-2">
-                                                <input value={d} onChange={e => {const n = [...directives]; n[i] = e.target.value; setDirectives(n);}} className="flex-1 bg-slate-50 p-3 rounded-xl text-xs font-bold text-slate-700 outline-none border-2 border-transparent focus:border-blue-100" />
+                                                <input value={d} onChange={e => {const n = [...directives]; n[i] = e.target.value; setDirectives(n);}} className="flex-1 bg-slate-50 p-3 rounded-xl text-xs font-bold text-slate-700 outline-none border border-slate-100 focus:border-blue-400" />
                                                 <button onClick={() => setDirectives(directives.filter((_, idx) => idx !== i))} className="p-3 text-slate-300 hover:text-red-500"><Icon name="X" size={16} /></button>
                                             </div>
                                         ))}
-                                        <button onClick={() => setDirectives([...directives, "New rule..."])} className="text-[9px] font-black uppercase text-blue-600 bg-blue-50 px-4 py-2 rounded-lg mt-2">+ Add Rule</button>
+                                        <button onClick={() => setDirectives([...directives, "Add new rule..."])} className="text-[9px] font-black uppercase text-blue-600 bg-blue-50 px-4 py-2 rounded-lg mt-2">+ Add Logic Rule</button>
                                     </div>
                                 </section>
 
@@ -333,8 +351,8 @@
                                     </div>
                                 </div>
 
-                                <button onClick={generateMenu} className="w-full py-6 bg-blue-600 text-white rounded-[2.5rem] font-black uppercase tracking-widest shadow-2xl shadow-blue-200 hover:scale-[1.02] transition-all flex items-center justify-center gap-4 text-sm">
-                                    <Icon name="Zap" /> Generate Seasonal Menu
+                                <button onClick={generateMenu} className="w-full py-6 bg-blue-600 text-white rounded-[2.5rem] font-black uppercase tracking-widest shadow-2xl hover:bg-blue-700 transition-all flex items-center justify-center gap-4 text-sm">
+                                    <Icon name="Zap" /> Apply Rules & Generate
                                 </button>
                             </div>
                         ) : (
@@ -342,7 +360,7 @@
                                 <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print">
                                     <div>
                                         <h2 className="text-4xl font-black tracking-tight uppercase leading-none">{activeMenu.city} Cycle</h2>
-                                        <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em] mt-2">{activeMenu.season.toUpperCase()} Season • Ayurvedic Flour Logic</p>
+                                        <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em] mt-2 italic">Standard logic + Specialized Fridays & Saturdays</p>
                                     </div>
                                     <div className="flex gap-3">
                                         <button onClick={() => window.print()} className="bg-white border border-slate-200 p-4 rounded-2xl hover:bg-slate-50 shadow-sm"><Icon name="Printer" size={20} /></button>
@@ -352,48 +370,59 @@
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     {activeMenu.days.map((day) => (
-                                        <div key={day.id} className="bg-white rounded-[3rem] border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden flex flex-col">
-                                            <div className={`px-8 py-5 flex justify-between items-center ${day.isWeekend ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-white'}`}>
+                                        <div key={day.id} className="bg-white rounded-[3rem] border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden flex flex-col relative">
+                                            <div className={`px-8 py-5 flex justify-between items-center ${day.isFriday ? 'bg-orange-500 text-white' : day.isSaturday ? 'bg-purple-600 text-white' : 'bg-slate-900 text-white'}`}>
                                                 <div>
                                                     <p className="font-black uppercase tracking-tighter text-xl">{day.dayName}</p>
-                                                    <p className="text-[10px] font-bold opacity-60 uppercase">{day.date}</p>
+                                                    <p className="text-[10px] font-bold opacity-60 uppercase">{day.date} {day.isFriday ? '• FUN NIGHT' : day.isSaturday ? '• SPECIAL' : ''}</p>
                                                 </div>
-                                                {day.isWeekend && <Icon name="Sparkles" size={24} />}
+                                                <Icon name={day.isFriday ? "PartyPopper" : day.isSaturday ? "Sparkles" : "ChefHat"} size={24} />
                                             </div>
                                             <div className="p-8 space-y-8 flex-1">
-                                                <MealItem 
-                                                    icon="Zap" label="Breakfast" item={day.breakfast} 
-                                                    onEdit={() => setEditingMeal({ dayId: day.id, path: 'breakfast', pool: 'breakfast' })} 
-                                                    yt={getYTLink(day.breakfast.name)}
-                                                />
+                                                <MealItem icon="Zap" label="Breakfast" item={day.breakfast} onEdit={() => setEditingMeal({ dayId: day.id, path: 'breakfast', pool: 'breakfast' })} yt={getYTLink(day.breakfast.name)} />
+                                                
                                                 <div className="h-px bg-slate-50" />
-                                                <div className="space-y-4">
-                                                    <MealItem 
-                                                        icon="Sun" label="Lunch (Tiffin)" 
-                                                        item={{ name: `${day.lunch.veg.name} + ${day.lunch.dal.name}`, hi: `${day.lunch.veg.hi} & ${day.lunch.dal.hi}` }} 
-                                                        onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.veg', pool: 'dry_veggies' })} 
-                                                        yt={getYTLink(day.lunch.veg.name)}
-                                                        sub={`Curd: ${day.curd.name}`}
-                                                    />
+                                                
+                                                <div className={`space-y-5 ${day.isSaturday ? 'bg-purple-50/50 p-4 rounded-[2rem] border border-purple-100' : ''}`}>
+                                                    <h3 className={`text-[10px] font-black uppercase tracking-widest ${day.isSaturday ? 'text-purple-600' : 'text-slate-400'}`}>Lunch</h3>
+                                                    <div className="grid grid-cols-1 gap-6 pl-2">
+                                                        {day.lunch.isSpecial ? (
+                                                            <MealItem icon="ChefHat" label="Special Saturday Meal" item={day.lunch.main} onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.main', pool: 'special_meals' })} yt={getYTLink(day.lunch.main.name)} />
+                                                        ) : (
+                                                            <React.Fragment>
+                                                                <MealItem icon="Leaf" label="Dry Sabzi (Tiffin)" item={day.lunch.veg} onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.veg', pool: 'dry_veggies' })} yt={getYTLink(day.lunch.veg.name)} />
+                                                                <MealItem icon="Waves" label="The Jugalbandi Dal" item={day.lunch.dal} onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.dal', pool: 'dals' })} yt={getYTLink(day.lunch.dal.name)} sub={`Curd: ${day.curd.name}`} />
+                                                            </React.Fragment>
+                                                        )}
+                                                    </div>
                                                     <SideItem side={day.lunchSide} flour={day.flourMix} />
                                                 </div>
+
                                                 <div className="h-px bg-slate-50" />
-                                                <MealItem 
-                                                    icon={day.isWeekend ? "PartyPopper" : "MessageSquare"} 
-                                                    label="Evening Snack" item={day.snack} 
-                                                    onEdit={() => setEditingMeal({ dayId: day.id, path: 'snack', pool: day.isWeekend ? 'weekend' : 'snacks' })} 
-                                                    yt={getYTLink(day.snack.name)}
-                                                />
-                                                <div className="h-px bg-slate-50" />
-                                                <div className="space-y-4">
+                                                
+                                                <div className={`space-y-4 ${day.isFriday ? 'bg-orange-50 p-4 rounded-[2rem] border border-orange-100 shadow-sm' : ''}`}>
                                                     <MealItem 
-                                                        icon="Moon" label="Dinner (Main Course)" 
-                                                        item={day.dinner.main} 
-                                                        onEdit={() => setEditingMeal({ dayId: day.id, path: 'dinner.main', pool: 'gravy_veggies' })} 
-                                                        yt={getYTLink(day.dinner.main.name)}
+                                                        icon={day.isFriday ? "Zap" : "MessageSquare"} 
+                                                        label={day.isFriday ? "Friday Fun Snack (Dinner Replacement)" : "Evening Snack"} 
+                                                        item={day.snack} 
+                                                        onEdit={() => setEditingMeal({ dayId: day.id, path: 'snack', pool: day.isFriday ? 'special_meals' : 'snacks' })} 
+                                                        yt={getYTLink(day.snack.name)} 
                                                     />
-                                                    <SideItem side={day.dinnerSide} flour={day.flourMix} />
+                                                    {day.isFriday && <p className="text-[10px] font-black text-orange-600 uppercase ml-14 tracking-tight">★ No separate dinner tonight</p>}
                                                 </div>
+
+                                                {day.dinner && (
+                                                    <React.Fragment>
+                                                        <div className="h-px bg-slate-50" />
+                                                        <div className="space-y-5">
+                                                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dinner (Main)</h3>
+                                                            <div className="pl-2">
+                                                                <MealItem icon="Moon" label="Gravy Main" item={day.dinner.main} onEdit={() => setEditingMeal({ dayId: day.id, path: 'dinner.main', pool: 'gravy_veggies' })} yt={getYTLink(day.dinner.main.name)} />
+                                                            </div>
+                                                            <SideItem side={day.dinnerSide} flour={day.flourMix} />
+                                                        </div>
+                                                    </React.Fragment>
+                                                )}
                                                 
                                                 <div className="mt-8 pt-6 border-t border-slate-100 bg-orange-50/50 rounded-2xl p-5 border border-orange-100">
                                                     <h4 className="text-[10px] font-black uppercase text-orange-600 tracking-widest flex items-center gap-2 mb-3">
@@ -416,18 +445,13 @@
                         )}
                     </main>
 
-                    {/* EDIT MODAL */}
                     {editingMeal && (
                         <div className="fixed inset-0 z-[1000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setEditingMeal(null)}>
-                            <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-10 max-h-[80vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+                            <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-10 max-h-[80vh] flex flex-col shadow-2xl animate-fade-in" onClick={e => e.stopPropagation()}>
                                 <h3 className="text-xl font-black mb-6 uppercase tracking-tight">Swap Item</h3>
                                 <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
                                     {MASTER_REPO[editingMeal.pool].filter(i => !dislikedItems.has(i.name)).map(item => (
-                                        <button 
-                                            key={item.name} 
-                                            onClick={() => updateMeal(editingMeal.dayId, editingMeal.path, item)}
-                                            className="w-full text-left p-5 rounded-2xl bg-slate-50 hover:bg-blue-600 hover:text-white transition-all flex justify-between items-center group"
-                                        >
+                                        <button key={item.name} onClick={() => updateMeal(editingMeal.dayId, editingMeal.path, item)} className="w-full text-left p-5 rounded-2xl bg-slate-50 hover:bg-blue-600 hover:text-white transition-all flex justify-between items-center group">
                                             <div>
                                                 <p className="font-black text-sm">{item.name}</p>
                                                 <p className="text-[10px] font-bold opacity-60 uppercase">{item.hi}</p>
@@ -458,10 +482,10 @@
                     </div>
                 </div>
                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={onEdit} className="w-10 h-10 rounded-lg bg-slate-100 text-slate-400 hover:text-blue-600 hover:bg-white transition-all flex items-center justify-center no-print">
+                    <button onClick={onEdit} className="w-10 h-10 rounded-lg bg-slate-100 text-slate-400 hover:text-blue-600 transition-all flex items-center justify-center no-print shadow-sm">
                         <Icon name="Edit3" size={16} />
                     </button>
-                    <a href={yt} target="_blank" className="w-10 h-10 rounded-lg bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center no-print">
+                    <a href={yt} target="_blank" className="w-10 h-10 rounded-lg bg-red-50 text-red-500 hover:bg-red-500 transition-all flex items-center justify-center no-print shadow-sm">
                         <Icon name="Youtube" size={18} />
                     </a>
                 </div>
@@ -469,7 +493,7 @@
         );
 
         const SideItem = ({ side, flour }) => (
-            <div className="flex items-center gap-4 ml-14 bg-slate-50 border border-slate-100 rounded-2xl p-4 shadow-sm animate-fade-in relative overflow-hidden group">
+            <div className="flex items-center gap-4 ml-14 bg-slate-50 border border-slate-100 rounded-2xl p-4 shadow-sm relative overflow-hidden group">
                 <div className="w-1 h-full bg-blue-500 absolute left-0 top-0" />
                 <div className="flex flex-col flex-1">
                     <div className="flex items-baseline gap-2 mb-1">
@@ -483,9 +507,6 @@
                             <p className="text-[9px] font-bold text-slate-400 mt-0.5 leading-tight italic">{flour.hi}</p>
                         </div>
                     )}
-                </div>
-                <div className="bg-white p-2 rounded-lg shadow-sm">
-                    <Icon name={side.en === "Rice" ? "Database" : "Disc"} size={14} className="text-slate-200" />
                 </div>
             </div>
         );
