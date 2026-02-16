@@ -137,7 +137,8 @@ const ROTATING_FLOURS = {
     tropical: ["ragi", "wheat", "rice"]
 };
 
-// --- Missing Components Restored ---
+// --- Helper Components ---
+
 const MealItem = ({ icon, label, item, yt, sub, onEdit }) => (
     <div className="flex items-center justify-between group">
         <div className="flex items-start gap-5">
@@ -150,8 +151,8 @@ const MealItem = ({ icon, label, item, yt, sub, onEdit }) => (
             </div>
         </div>
         <div className="flex gap-2">
-            {onEdit && <button onClick={onEdit} className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 hover:text-blue-600 transition-all flex items-center justify-center no-print"><Icon name="Edit3" size={16} /></button>}
-            <a href={yt} target="_blank" className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center no-print"><Icon name="Youtube" size={18} /></a>
+            {onEdit && <button onClick={onEdit} className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 hover:text-blue-600 transition-all flex items-center justify-center no-print opacity-0 group-hover:opacity-100"><Icon name="Edit3" size={16} /></button>}
+            <a href={yt} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center no-print opacity-0 group-hover:opacity-100"><Icon name="Youtube" size={18} /></a>
         </div>
     </div>
 );
@@ -255,10 +256,9 @@ export default function App() {
                 body: JSON.stringify(payload)
             });
             
-            // Check for Auth errors OR Bad Request with missing key (often treated as 400 by some endpoints)
-            if (response.status === 401 || response.status === 403 || (response.status === 400 && !effectiveKey)) {
-                  setShowApiInput(true);
-                  throw new Error("401 Unauthorized: API Key is missing or invalid. Please check your settings.");
+            if (response.status === 401 || response.status === 403) {
+                 setShowApiInput(true);
+                 throw new Error("401 Unauthorized: Invalid or expired API Key.");
             }
 
             if (response.status === 429) {
