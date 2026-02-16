@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The360 Kitchen | Logic Master v12.9</title>
+    <title>The360 Kitchen | Logic Master v12.9.1</title>
     
     <!-- 1. Load Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,13 +12,12 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    <!-- 3. Load Babel to translate JSX in the browser -->
+    <!-- 3. Load Babel to translate JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- 4. Load Icons (Pinned Version for Stability) -->
+    <!-- 4. Load Icons -->
     <script src="https://unpkg.com/lucide@0.263.1"></script>
     
-    <!-- 5. Fonts & Styles -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
@@ -38,12 +37,10 @@
 <body class="bg-slate-50 text-slate-900 selection:bg-blue-100">
     <div id="root"></div>
 
-    <!-- MAIN APP SCRIPT -->
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
         const apiKey = ""; // API Key is injected by the environment at runtime
 
-        // --- Helper: Icon Component using window.lucide ---
         const Icon = ({ name, size = 20, className = "" }) => {
             const iconRef = useRef(null);
             
@@ -51,15 +48,9 @@
                 if (window.lucide && iconRef.current) {
                     const kebabName = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
                     iconRef.current.innerHTML = `<i data-lucide="${kebabName}"></i>`;
-                    
                     window.lucide.createIcons({
                         root: iconRef.current,
-                        attrs: {
-                            width: size,
-                            height: size,
-                            'stroke-width': 2.5,
-                            class: className
-                        },
+                        attrs: { width: size, height: size, 'stroke-width': 2.5, class: className },
                         nameAttr: 'data-lucide'
                     });
                 }
@@ -73,7 +64,6 @@
             return `https://www.youtube.com/results?search_query=${name.replace(/\s+/g, '+')}+recipe+indian+style`;
         };
 
-        // --- Data Libraries ---
         const MASTER_LIBRARY = {
             breakfast: [
                 { name: "Kanda Poha", hi: "कांदा पोहा", season: "all" },
@@ -186,7 +176,6 @@
             tropical: ["ragi", "wheat", "rice"]
         };
 
-        // --- COMPONENTS ---
         const MealItem = ({ icon, label, item, yt, sub, onEdit }) => (
             <div className="flex items-center justify-between group">
                 <div className="flex items-start gap-5">
@@ -229,7 +218,6 @@
 
         const App = () => {
             const [userApiKey, setUserApiKey] = useState(localStorage.getItem('t360_api_key') || '');
-            
             const [view, setView] = useState('plan');
             const [isGenerating, setIsGenerating] = useState(false);
             const [isExpanding, setIsExpanding] = useState(false);
@@ -239,10 +227,8 @@
             const [isSyncing, setIsSyncing] = useState(true);
             const [showApiInput, setShowApiInput] = useState(false);
             const [errorBanner, setErrorBanner] = useState(null);
-            
             const [repo, setRepo] = useState(MASTER_LIBRARY);
             const [customDish, setCustomDish] = useState({ name: '', hi: '', category: 'dry_veggies' });
-            
             const [directives, setDirectives] = useState([
                 "Lunch: MUST include Dual Dal pair",
                 "Friday: No separate Dinner (Heavy snacks only)",
@@ -253,7 +239,6 @@
             ]);
             const [tempDirectives, setTempDirectives] = useState([]);
             const [rulesSaved, setRulesSaved] = useState(true);
-            
             const [history, setHistory] = useState([]);
             const [activeMenu, setActiveMenu] = useState(null);
             const [dislikedItems, setDislikedItems] = useState(new Set());
@@ -290,12 +275,32 @@
                 }
             }, [repo, history, dislikedItems, directives, isSyncing, userApiKey]);
 
+            const extractJSON = (text) => {
+                try {
+                    // Try direct parse
+                    return JSON.parse(text);
+                } catch (e) {
+                    // Try to find the first [ or { and the last ] or }
+                    const startIdx = Math.min(
+                        text.indexOf('[') === -1 ? Infinity : text.indexOf('['),
+                        text.indexOf('{') === -1 ? Infinity : text.indexOf('{')
+                    );
+                    const endIdx = Math.max(text.lastIndexOf(']'), text.lastIndexOf('}'));
+                    
+                    if (startIdx !== Infinity && endIdx !== -1) {
+                        const jsonStr = text.substring(startIdx, endIdx + 1);
+                        return JSON.parse(jsonStr);
+                    }
+                    throw new Error("Could not find a valid JSON array in AI response.");
+                }
+            };
+
             const callGemini = async (prompt, useSearch = false, retryCount = 0) => {
                 const effectiveKey = userApiKey || apiKey;
                 
                 if (!effectiveKey) {
                     setShowApiInput(true);
-                    throw new Error("Missing API Key. Please provide one in 'API Settings' above.");
+                    throw new Error("API Key Missing. Please enter your key in 'API Settings' above.");
                 }
                 
                 try {
@@ -313,35 +318,28 @@
                     
                     if (response.status === 401 || response.status === 403) {
                          setShowApiInput(true);
-                         throw new Error("Invalid or expired API Key. Update it in 'API Settings'.");
+                         throw new Error("Unauthorized: Invalid API Key. Please update Settings.");
                     }
 
                     if (response.status === 429) {
-                        throw new Error("Too Many Requests: Please wait a minute before retrying.");
+                        throw new Error("Rate Limited: Please wait 60 seconds.");
                     }
 
                     if (!response.ok) {
-                        const errData = await response.json().catch(() => ({}));
-                        throw new Error(errData.error?.message || `API Error: ${response.status}`);
+                        const err = await response.json().catch(() => ({}));
+                        throw new Error(err.error?.message || `Network Error: ${response.status}`);
                     }
                     
                     const data = await response.json();
                     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (!text) throw new Error("Empty response from AI. Please try again.");
+                    if (!text) throw new Error("AI returned an empty response.");
                     
-                    try {
-                        return JSON.parse(text);
-                    } catch (e) {
-                        // Attempt to clean text if AI included markdown wrappers
-                        const cleaned = text.replace(/```json|```/g, "").trim();
-                        return JSON.parse(cleaned);
-                    }
+                    return extractJSON(text);
                 } catch (error) {
-                    console.error("Gemini API Error:", error);
-                    const isAuthError = error.message.includes("Unauthorized") || error.message.includes("API Key");
-                    
-                    if (retryCount < 2 && !isAuthError) {
-                        await new Promise(res => setTimeout(res, Math.pow(2, retryCount) * 1000));
+                    console.error("API call failed:", error);
+                    const isFatal = error.message.includes("API Key") || error.message.includes("Unauthorized");
+                    if (retryCount < 2 && !isFatal) {
+                        await new Promise(res => setTimeout(res, 2000));
                         return callGemini(prompt, useSearch, retryCount + 1);
                     }
                     throw error;
@@ -353,11 +351,9 @@
                 setErrorBanner(null);
                 const currentMonth = new Date(startDate).toLocaleString('default', { month: 'long' });
                 try {
-                    const prompt = `Perform a Deep Google Search for seasonal Indian vegetables and authentic Micro-Regional vegetarian dishes available in ${city} during ${currentMonth}. 
-                    I want hidden gems, rare preparations, and hyper-local ingredients.
-                    Return an exhaustive JSON object with keys: "breakfast", "dry_veggies", "gravy_veggies", "special_meals".
-                    Find at least 10 items for each category.
-                    Each value should be an array of: { "name": "English Name", "hi": "Hindi Name", "reason": "Why it's in season" }.`;
+                    const prompt = `Search for seasonal Indian vegetables available in ${city} during ${currentMonth}. 
+                    Return JSON object: { "breakfast": [...], "dry_veggies": [...], "gravy_veggies": [...], "special_meals": [...] }. 
+                    Items must have: { "name": "English", "hi": "Hindi", "reason": "Why" }.`;
                     
                     const newDishes = await callGemini(prompt, true);
                     const updatedRepo = { ...repo };
@@ -365,7 +361,7 @@
                     Object.keys(newDishes).forEach(cat => {
                         if (updatedRepo[cat]) {
                             const existingNames = new Set(updatedRepo[cat].map(d => d.name.toLowerCase()));
-                            newDishes[cat].forEach(dish => {
+                            (newDishes[cat] || []).forEach(dish => {
                                 if (dish && dish.name && !existingNames.has(dish.name.toLowerCase())) {
                                     updatedRepo[cat].push({ ...dish, season: 'seasonal' });
                                 }
@@ -396,7 +392,7 @@
 
             const generateMenu = async () => {
                 if (!rulesSaved) {
-                    setErrorBanner("Please click 'Save Logic' before generating.");
+                    setErrorBanner("Please save logic rules first.");
                     return;
                 }
                 setIsGenerating(true);
@@ -408,37 +404,17 @@
                     const currentSeasonName = (month >= 10 || month <= 1) ? "winter" : (month >= 2 && month <= 5) ? "summer" : "monsoon";
                     const flourOptions = ROTATING_FLOURS[currentSeasonName] || ROTATING_FLOURS['winter'];
 
-                    const dates = Array.from({ length: cycle }).map((_, i) => {
-                        const d = new Date(start);
-                        d.setDate(start.getDate() + i);
-                        return d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' });
-                    });
-
-                    const systemPrompt = `RULES: "${directives.join(' | ')}". 
-                    CONTEXT: City: ${city}. Dates: ${dates.join(', ')}. Season: ${currentSeasonName}.
-                    
-                    CRITICAL INSTRUCTIONS:
-                    1. STRICTLY follow count rules. E.g., "Rice on 3 weekdays" means exactly 3 weekdays MUST have "lunchSide": "Rice".
-                    2. FLOUR LOGIC: If a rule says "Wheat flour roti", output "lunchFlour": "wheat". If it says "Alternate flours", output "dinnerFlour": "alternate".
-                    3. "No Dinner" rule: If strict, set "isNoDinner": true.
-
-                    Return JSON Array: [{ 
-                        "dayName": string, 
-                        "isSpecialLunch": bool, 
-                        "isNoDinner": bool, 
-                        "lunchSide": "Rice"|"Roti", 
-                        "lunchFlour": string|null (e.g. "wheat", "jowar"), 
-                        "dinnerFlour": string|null 
-                    }]`;
+                    const systemPrompt = `Return a JSON array of ${cycle} objects representing a meal plan for ${city} starting ${startDate}.
+                    Rules: "${directives.join(' | ')}". 
+                    Return format: [{ "dayName": "Monday", "isSpecialLunch": false, "isNoDinner": false, "lunchSide": "Rice"|"Roti", "lunchFlour": "wheat"|null, "dinnerFlour": "wheat"|null }].`;
 
                     let logicPlan = await callGemini(systemPrompt);
-                    
-                    // Handle cases where LLM might wrap array in an object
-                    if (!Array.isArray(logicPlan) && logicPlan.days) logicPlan = logicPlan.days;
                     if (!Array.isArray(logicPlan)) {
-                        console.error("Invalid format from AI:", logicPlan);
-                        throw new Error("AI returned an invalid menu format. Please try again.");
+                        if (logicPlan.days) logicPlan = logicPlan.days;
+                        else if (logicPlan.plan) logicPlan = logicPlan.plan;
                     }
+                    
+                    if (!Array.isArray(logicPlan)) throw new Error("AI failed to provide a valid list. Try again.");
 
                     const getShuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
                     const filterSeasonal = (pool) => pool.filter(item => 
@@ -462,10 +438,8 @@
                         d.setDate(start.getDate() + i);
                         
                         const rotationFlourKey = flourOptions[i % flourOptions.length];
-                        const lunchFlourKey = plan.lunchFlour && plan.lunchFlour !== 'alternate' ? plan.lunchFlour : rotationFlourKey;
-                        const lunchFlourObj = getFlourDetails(lunchFlourKey);
-                        const dinnerFlourKey = plan.dinnerFlour && plan.dinnerFlour !== 'alternate' ? plan.dinnerFlour : rotationFlourKey;
-                        const dinnerFlourObj = getFlourDetails(dinnerFlourKey);
+                        const lunchFlourKey = plan.lunchFlour || rotationFlourKey;
+                        const dinnerFlourKey = plan.dinnerFlour || rotationFlourKey;
 
                         return {
                             id: i, date: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
@@ -473,8 +447,8 @@
                             isNoDinnerDay: plan.isNoDinner, isSpecialLunchDay: plan.isSpecialLunch,
                             lunchSide: plan.lunchSide === "Rice" ? { en: "Rice", hi: "चावल" } : { en: "Roti", hi: "रोटी" },
                             dinnerSide: { en: "Roti", hi: "रोटी" },
-                            lunchFlour: plan.lunchSide === "Roti" ? lunchFlourObj : null,
-                            dinnerFlour: dinnerFlourObj,
+                            lunchFlour: plan.lunchSide === "Roti" ? getFlourDetails(lunchFlourKey) : null,
+                            dinnerFlour: getFlourDetails(dinnerFlourKey),
                             breakfast: pools.breakfast[i % pools.breakfast.length] || repo.breakfast[0],
                             lunch: plan.isSpecialLunch ? { isSpecial: true, main: pools.special_meals[i % pools.special_meals.length] || repo.special_meals[0] } : 
                                    { isSpecial: false, veg: pools.dry_veggies[i % pools.dry_veggies.length] || repo.dry_veggies[0], dal: pools.dals[0] },
@@ -489,8 +463,7 @@
                     setActiveMenu(menuObj);
                     setView('live');
                 } catch (err) {
-                    console.error(err);
-                    setErrorBanner(err.message || "Menu generation failed. Check your API settings.");
+                    setErrorBanner(err.message);
                 } finally { setIsGenerating(false); }
             };
 
@@ -519,7 +492,6 @@
             if (isSyncing) return (
                 <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
                     <div className="bg-blue-600 p-4 rounded-3xl text-white shadow-2xl pulse-light"><Icon name="ChefHat" size={40} /></div>
-                    <p className="text-[10px] font-black uppercase mt-4 text-slate-400 tracking-widest">Logic Master v12.9</p>
                 </div>
             );
 
@@ -528,11 +500,11 @@
                     <aside className="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col no-print h-screen md:sticky md:top-0">
                         <div className="p-6 border-b border-slate-100 flex items-center gap-2">
                                 <div className="bg-blue-600 p-1 rounded-lg text-white"><Icon name="ChefHat" size={16} /></div>
-                                <h1 className="font-black text-[10px] uppercase tracking-tighter">Kitchen History</h1>
+                                <h1 className="font-black text-[10px] uppercase tracking-tighter">Cycle History</h1>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-2">
-                            {history.length === 0 ? <p className="text-[10px] text-slate-300 italic p-4 text-center">No cycles yet</p> : history.map(h => (
-                                <div key={h.id} className={`p-4 rounded-2xl border cursor-pointer transition-all ${activeMenu?.id === h.id ? 'bg-blue-50 border-blue-200' : 'bg-white'}`} onClick={() => {setActiveMenu(h); setView('live');}}>
+                            {history.length === 0 ? <p className="text-[10px] text-slate-300 italic p-4 text-center">No previous menus</p> : history.map(h => (
+                                <div key={h.id} className={`p-4 rounded-2xl border cursor-pointer transition-all ${activeMenu?.id === h.id ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-white'}`} onClick={() => {setActiveMenu(h); setView('live');}}>
                                     <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">{h.city}</p>
                                     <p className="text-xs font-bold text-slate-700">{h.timestamp.split(',')[0]}</p>
                                 </div>
@@ -545,10 +517,9 @@
                             <div className="space-y-12 animate-fade-in">
                                 <header className="text-center">
                                     <h2 className="text-6xl font-black text-slate-900 leading-none tracking-tighter">Kitchen Intelligence</h2>
-                                    <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.3em] mt-3 italic">Strict Logic Engine v12.9</p>
+                                    <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.3em] mt-3 italic">Strict Logic Engine v12.9.1</p>
                                 </header>
 
-                                {/* API Key Input Section with Error Banner */}
                                 <div className={`max-w-md mx-auto transition-all ${showApiInput ? 'mb-6' : 'mb-2'}`}>
                                         {errorBanner && (
                                             <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl text-xs font-bold mb-4 flex items-center gap-3 error-shake shadow-sm">
@@ -559,7 +530,7 @@
                                         )}
                                         
                                         <button onClick={() => setShowApiInput(!showApiInput)} className={`text-[10px] font-bold uppercase tracking-widest mx-auto block mb-2 hover:text-blue-500 transition-colors ${!userApiKey && !apiKey ? 'text-red-500 underline' : 'text-slate-400'}`}>
-                                        {showApiInput ? "Hide API Settings" : (userApiKey || apiKey) ? "Configure API Settings" : "⚠️ API Key Required: Click here to set up"}
+                                        {showApiInput ? "Close Settings" : (userApiKey || apiKey) ? "API Configured" : "⚠️ API Key Required"}
                                         </button>
                                         
                                         {showApiInput && (
@@ -570,18 +541,14 @@
                                                 type="password" 
                                                 value={userApiKey} 
                                                 onChange={(e) => setUserApiKey(e.target.value)} 
-                                                placeholder="Paste your API key from Google AI Studio..."
-                                                className="w-full bg-slate-50 p-3 rounded-xl text-xs font-bold border border-slate-200 focus:border-blue-500 outline-none transition-all focus:bg-white"
+                                                placeholder="Enter Key..."
+                                                className="w-full bg-slate-50 p-3 rounded-xl text-xs font-bold border border-slate-200 focus:border-blue-500 outline-none transition-all"
                                                 />
-                                                <p className="text-[9px] text-slate-400 mt-2 italic flex items-center gap-1">
-                                                <Icon name="Info" size={10} />
-                                                This key is required for AI features on GitHub deployments.
-                                                </p>
                                             </div>
                                         )}
                                 </div>
 
-                                <div className="grid md:grid-cols-3 gap-6 bg-white p-8 rounded-[2.5rem] border-2 border-slate-100">
+                                <div className="grid md:grid-cols-3 gap-6 bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm">
                                     <div className="space-y-2">
                                         <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest block ml-2">Location</label>
                                         <input value={city} onChange={e => setCity(e.target.value)} className="w-full bg-slate-50 p-4 rounded-2xl font-black outline-none border-2 border-transparent focus:border-blue-400 transition-all" />
@@ -593,7 +560,7 @@
                                     <div className="space-y-2">
                                         <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest block ml-2">Cycle (Days)</label>
                                         <div className="flex bg-slate-50 p-1 rounded-2xl">
-                                            {[3, 7, 10, 14].map(n => <button key={n} onClick={() => setCycle(n)} className={`flex-1 py-3 rounded-xl text-xs font-black ${cycle === n ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}>{n}</button>)}
+                                            {[3, 7, 10, 14].map(n => <button key={n} onClick={() => setCycle(n)} className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${cycle === n ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}>{n}</button>)}
                                         </div>
                                     </div>
                                 </div>
@@ -608,7 +575,7 @@
                                         </div>
                                         <button onClick={saveDirectives} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-2 ${rulesSaved ? 'bg-slate-100 text-slate-400' : 'bg-green-600 text-white shadow-xl glow-pulse active:scale-95'}`}>
                                             <Icon name="Save" size={14} />
-                                            {rulesSaved ? 'Rules Saved' : 'Save Logic'}
+                                            {rulesSaved ? 'Saved' : 'Save Rules'}
                                         </button>
                                     </div>
                                     <div className="space-y-2">
@@ -618,28 +585,16 @@
                                                 <button onClick={() => {setTempDirectives(tempDirectives.filter((_, idx) => idx !== i)); setRulesSaved(false);}} className="p-3 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="X" size={16}/></button>
                                             </div>
                                         ))}
-                                        <button onClick={() => {setTempDirectives([...tempDirectives, ""]); setRulesSaved(false);}} className="w-full py-4 border-2 border-dashed border-slate-100 rounded-2xl text-[10px] font-black uppercase text-slate-400 hover:text-blue-500 hover:border-blue-100 transition-all">+ Add Rule</button>
+                                        <button onClick={() => {setTempDirectives([...tempDirectives, ""]); setRulesSaved(false);}} className="w-full py-4 border-2 border-dashed border-slate-100 rounded-2xl text-[10px] font-black uppercase text-slate-400 hover:text-blue-500 hover:border-blue-100 transition-all">+ Add Logic Rule</button>
                                     </div>
                                 </section>
 
                                 <section className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm space-y-6">
                                     <div className="flex justify-between items-center border-b pb-4">
-                                        <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Icon name="Filter" size={14} className="text-purple-500" /> 2. Master Dish Selection</h3>
+                                        <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Icon name="Filter" size={14} className="text-purple-500" /> 2. Seasonal Inventory</h3>
                                         <button onClick={discoverSeasonalDishes} disabled={isExpanding} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${isExpanding ? 'bg-slate-100' : 'bg-purple-100 text-purple-600 hover:bg-purple-200 active:scale-95'}`}>
-                                            {isExpanding ? "Deep Search Grounding..." : `AI Deep Search: ${city}`}
+                                            {isExpanding ? "AI Grounding..." : `Sync Dishes: ${city}`}
                                         </button>
-                                    </div>
-
-                                    <div className="bg-slate-50 p-6 rounded-[2rem] space-y-4">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Manual Family Dish Entry</p>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                            <input value={customDish.name} onChange={e => setCustomDish({...customDish, name: e.target.value})} placeholder="English Name" className="bg-white p-3 rounded-xl text-xs font-bold outline-none" />
-                                            <input value={customDish.hi} onChange={e => setCustomDish({...customDish, hi: e.target.value})} placeholder="नाम (हिंदी)" className="bg-white p-3 rounded-xl text-xs font-bold outline-none" />
-                                            <select value={customDish.category} onChange={e => setCustomDish({...customDish, category: e.target.value})} className="bg-white p-3 rounded-xl text-xs font-bold border-none outline-none">
-                                                {Object.keys(repo).map(k => <option key={k} value={k}>{k.replace('_',' ')}</option>)}
-                                            </select>
-                                            <button onClick={addManualDish} className="bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase hover:bg-black transition-colors">Add to Library</button>
-                                        </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 h-[500px] overflow-y-auto pr-4 custom-scrollbar">
@@ -647,7 +602,6 @@
                                             <div key={cat} className="space-y-3">
                                                 <div className="flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md py-2 z-10">
                                                         <p className="text-[10px] font-black text-blue-600 uppercase bg-blue-50 px-3 py-1 rounded-full">{cat.replace('_',' ')}</p>
-                                                        <span className="text-[8px] font-black text-slate-300">{items.length} items</span>
                                                 </div>
                                                 {items.map(item => (
                                                     <label key={item.name} className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${dislikedItems.has(item.name) ? 'opacity-30 grayscale' : 'bg-white hover:border-blue-200 shadow-sm'}`} onClick={() => toggleDislike(item.name)}>
@@ -655,12 +609,7 @@
                                                             {!dislikedItems.has(item.name) && <Icon name="Check" size={10} className="text-white" />}
                                                         </div>
                                                         <div className="flex-1">
-                                                            <div className="flex items-center gap-2">
-                                                                <p className="text-xs font-black text-slate-800 leading-none">{item.name}</p>
-                                                                <span className={`seasonal-tag ${item.season === 'winter' ? 'bg-blue-100 text-blue-600' : item.season === 'summer' ? 'bg-orange-100 text-orange-600' : item.season === 'monsoon' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
-                                                                    {item.season}
-                                                                </span>
-                                                            </div>
+                                                            <p className="text-xs font-black text-slate-800 leading-none">{item.name}</p>
                                                             <p className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-wider">{item.hi}</p>
                                                         </div>
                                                     </label>
@@ -671,9 +620,7 @@
                                 </section>
 
                                 <button onClick={generateMenu} disabled={isGenerating} className={`w-full py-7 rounded-[3rem] font-black uppercase tracking-[0.2em] shadow-2xl flex items-center justify-center gap-4 text-sm transition-all glow-pulse ${isGenerating ? 'bg-slate-200 text-slate-400' : 'bg-blue-600 text-white hover:scale-[1.01] hover:bg-blue-700 active:scale-95'}`}>
-                                    {isGenerating ? (
-                                        <><Icon name="Loader2" size={20} className="animate-spin" /> Gemini Analysis & Validation...</>
-                                    ) : "Generate Master Menu"}
+                                    {isGenerating ? <><Icon name="Loader2" size={20} className="animate-spin" /> Analyzing Logic...</> : "Generate Master Menu"}
                                 </button>
                             </div>
                         ) : (
@@ -681,13 +628,11 @@
                                 <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print">
                                     <div>
                                         <h2 className="text-5xl font-black tracking-tighter uppercase leading-none">{activeMenu.city} Cycle</h2>
-                                        <div className="flex items-center gap-3 mt-4">
-                                            <div className="px-4 py-1 rounded-full text-[8px] font-black uppercase bg-green-50 text-green-600 border border-green-100 flex items-center gap-2 tracking-widest"><Icon name="ShieldCheck" size={12} /> Seasonal Integrity Validated</div>
-                                        </div>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase mt-3 tracking-widest">Seasonal Integrity Validated</p>
                                     </div>
                                     <div className="flex gap-2">
                                         <button onClick={() => window.print()} className="bg-white border border-slate-200 p-4 rounded-2xl hover:bg-slate-50 transition-colors"><Icon name="Printer" size={20}/></button>
-                                        <button onClick={() => setView('plan')} className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-black transition-colors">Reconfigure</button>
+                                        <button onClick={() => setView('plan')} className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-black transition-colors">Adjust Plan</button>
                                     </div>
                                 </header>
 
@@ -697,7 +642,7 @@
                                             <div className={`px-10 py-7 flex justify-between items-center ${day.isNoDinnerDay ? 'bg-orange-500 text-white' : day.isSpecialLunchDay ? 'bg-purple-600 text-white' : 'bg-slate-900 text-white'}`}>
                                                 <div>
                                                     <p className="font-black uppercase tracking-tighter text-2xl">{day.dayName}</p>
-                                                    <p className="text-[10px] font-black opacity-70 uppercase tracking-widest mt-1">{day.date} {day.isNoDinnerDay ? '• NO DINNER' : day.isSpecialLunchDay ? '• SPECIAL' : ''}</p>
+                                                    <p className="text-[10px] font-black opacity-70 uppercase tracking-widest mt-1">{day.date}</p>
                                                 </div>
                                                 <Icon name={day.isNoDinnerDay ? "Zap" : day.isSpecialLunchDay ? "Sparkles" : "ChefHat"} size={28} />
                                             </div>
@@ -707,16 +652,16 @@
                                                 <div className={`space-y-5 ${day.isSpecialLunchDay ? 'bg-purple-50/50 p-6 rounded-[2.5rem] border border-purple-100' : ''}`}>
                                                     <h3 className={`text-[10px] font-black uppercase tracking-widest ${day.isSpecialLunchDay ? 'text-purple-600' : 'text-slate-400'}`}>Lunch</h3>
                                                     <div className="grid grid-cols-1 gap-6 pl-2">
-                                                        {day.lunch.isSpecial ? <MealItem icon="ChefHat" label="AI Chosen Special" item={day.lunch.main} yt={getYTLink(day.lunch.main.name)} onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.main', pool: 'special_meals' })} /> : 
-                                                            <React.Fragment><MealItem icon="Leaf" label="Dry Sabzi" item={day.lunch.veg} yt={getYTLink(day.lunch.veg.name)} onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.veg', pool: 'dry_veggies' })} /><MealItem icon="Waves" label="The Pair (Dal)" item={day.lunch.dal} yt={getYTLink(day.lunch.dal.name)} sub={`Curd: ${day.curd.name}`} onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.dal', pool: 'dals' })} /></React.Fragment>}
+                                                        {day.lunch.isSpecial ? <MealItem icon="ChefHat" label="Specialty Meal" item={day.lunch.main} yt={getYTLink(day.lunch.main.name)} onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.main', pool: 'special_meals' })} /> : 
+                                                            <React.Fragment><MealItem icon="Leaf" label="Veg Dish" item={day.lunch.veg} yt={getYTLink(day.lunch.veg.name)} onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.veg', pool: 'dry_veggies' })} /><MealItem icon="Waves" label="Dal Pair" item={day.lunch.dal} yt={getYTLink(day.lunch.dal.name)} sub={`Curd: ${day.curd.name}`} onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.dal', pool: 'dals' })} /></React.Fragment>}
                                                     </div>
                                                     <SideItem side={day.lunchSide} flour={day.lunchFlour} />
                                                 </div>
                                                 <div className="h-px bg-slate-50" />
                                                 <div className={`space-y-4 ${day.isNoDinnerDay ? 'bg-orange-50 p-6 rounded-[2.5rem] border border-orange-100' : ''}`}>
-                                                    <MealItem icon={day.isNoDinnerDay ? "Star" : "MessageSquare"} label={day.isNoDinnerDay ? "Final Feast (No Dinner)" : "Evening Snack"} item={day.snack} yt={getYTLink(day.snack.name)} onEdit={() => setEditingMeal({ dayId: day.id, path: 'snack', pool: day.isNoDinnerDay ? 'special_meals' : 'snacks' })} />
+                                                    <MealItem icon={day.isNoDinnerDay ? "Star" : "MessageSquare"} label={day.isNoDinnerDay ? "Final Meal" : "Evening Snack"} item={day.snack} yt={getYTLink(day.snack.name)} onEdit={() => setEditingMeal({ dayId: day.id, path: 'snack', pool: day.isNoDinnerDay ? 'special_meals' : 'snacks' })} />
                                                 </div>
-                                                {day.dinner && <React.Fragment><div className="h-px bg-slate-50" /><div className="space-y-5"><h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dinner</h3><div className="pl-2"><MealItem icon="Moon" label="Main Gravy" item={day.dinner.main} yt={getYTLink(day.dinner.main.name)} onEdit={() => setEditingMeal({ dayId: day.id, path: 'dinner.main', pool: 'gravy_veggies' })} /></div><SideItem side={day.dinnerSide} flour={day.dinnerFlour} /></div></React.Fragment>}
+                                                {day.dinner && <React.Fragment><div className="h-px bg-slate-50" /><div className="space-y-5"><h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dinner</h3><div className="pl-2"><MealItem icon="Moon" label="Gravy Main" item={day.dinner.main} yt={getYTLink(day.dinner.main.name)} onEdit={() => setEditingMeal({ dayId: day.id, path: 'dinner.main', pool: 'gravy_veggies' })} /></div><SideItem side={day.dinnerSide} flour={day.dinnerFlour} /></div></React.Fragment>}
                                             </div>
                                         </div>
                                     ))}
@@ -728,7 +673,7 @@
                     {editingMeal && (
                         <div className="fixed inset-0 z-[1000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setEditingMeal(null)}>
                             <div className="bg-white w-full max-w-lg rounded-[3rem] p-10 max-h-[80vh] flex flex-col shadow-2xl animate-fade-in" onClick={e => e.stopPropagation()}>
-                                <h3 className="text-xl font-black mb-6 uppercase tracking-tight flex items-center gap-2"><Icon name="RefreshCw" size={20}/> Swap Dish</h3>
+                                <h3 className="text-xl font-black mb-6 uppercase tracking-tight flex items-center gap-2"><Icon name="RefreshCw" size={20}/> Swap Selection</h3>
                                 <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
                                     {repo[editingMeal.pool].filter(i => !dislikedItems.has(i.name)).map(item => (
                                         <button key={item.name} onClick={() => updateMeal(editingMeal.dayId, editingMeal.path, item)} className="w-full text-left p-5 rounded-2xl bg-slate-50 hover:bg-blue-600 hover:text-white transition-all flex justify-between items-center group">
