@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The360 Kitchen | Logic Master v12.9.2</title>
+    <title>The360 Kitchen | Logic Master v12.9.3</title>
     
     <!-- 1. Load Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -39,7 +39,7 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
-        const apiKey = ""; // API Key is injected by the environment at runtime
+        const apiKey = ""; // API Key is provided by the environment at runtime
 
         const Icon = ({ name, size = 20, className = "" }) => {
             const iconRef = useRef(null);
@@ -309,7 +309,8 @@
                         body: JSON.stringify(payload)
                     });
                     
-                    if (response.status === 401 || response.status === 403 || (response.status === 400 && !effectiveKey)) {
+                    // Only prompt for a key if the server explicitly tells us the key is unauthorized/missing
+                    if (response.status === 401 || response.status === 403) {
                          setShowApiInput(true);
                          throw new Error("API Authentication Error. If you are on GitHub, please enter your key in 'API Settings' above.");
                     }
@@ -510,7 +511,7 @@
                             <div className="space-y-12 animate-fade-in">
                                 <header className="text-center">
                                     <h2 className="text-6xl font-black text-slate-900 leading-none tracking-tighter">Kitchen Intelligence</h2>
-                                    <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.3em] mt-3 italic">Strict Logic Engine v12.9.2</p>
+                                    <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.3em] mt-3 italic">Strict Logic Engine v12.9.3</p>
                                 </header>
 
                                 <div className={`max-w-md mx-auto transition-all ${showApiInput ? 'mb-6' : 'mb-2'}`}>
@@ -522,8 +523,8 @@
                                             </div>
                                         )}
                                         
-                                        <button onClick={() => setShowApiInput(!showApiInput)} className={`text-[10px] font-bold uppercase tracking-widest mx-auto block mb-2 hover:text-blue-500 transition-colors ${!userApiKey && !apiKey ? 'text-red-500 underline' : 'text-slate-400'}`}>
-                                        {showApiInput ? "Close Settings" : "API Configuration Settings"}
+                                        <button onClick={() => setShowApiInput(!showApiInput)} className={`text-[10px] font-bold uppercase tracking-widest mx-auto block mb-2 hover:text-blue-500 transition-colors ${!userApiKey && !apiKey ? 'text-blue-500 underline' : 'text-slate-400'}`}>
+                                        {showApiInput ? "Close Settings" : (userApiKey || apiKey) ? "API Configured" : "API Configuration (Optional)"}
                                         </button>
                                         
                                         {showApiInput && (
@@ -537,7 +538,7 @@
                                                 placeholder="Enter Key..."
                                                 className="w-full bg-slate-50 p-3 rounded-xl text-xs font-bold border border-slate-200 focus:border-blue-500 outline-none transition-all"
                                                 />
-                                                <p className="text-[8px] text-slate-400 mt-2">Only required for GitHub deployments. Not needed for this preview.</p>
+                                                <p className="text-[8px] text-slate-400 mt-2 italic">Note: Only required for external deployments (GitHub). Internal generation works automatically.</p>
                                             </div>
                                         )}
                                 </div>
