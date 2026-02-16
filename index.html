@@ -15,8 +15,8 @@
     <!-- 3. Load Babel to translate JSX in the browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- 4. Load Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- 4. Load Icons (Pinned Version for Stability) -->
+    <script src="https://unpkg.com/lucide@0.263.1"></script>
     
     <!-- 5. Fonts & Styles -->
     <style>
@@ -42,7 +42,6 @@
         const apiKey = ""; // API Key is injected by the environment at runtime
 
         // --- Helper: Icon Component using window.lucide ---
-        // This replaces the import {...} from 'lucide-react'
         const Icon = ({ name, size = 20, className = "" }) => {
             const iconRef = useRef(null);
             
@@ -51,7 +50,10 @@
                     // Convert CamelCase (e.g. ChefHat) to kebab-case (chef-hat) for the library
                     const kebabName = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
                     iconRef.current.innerHTML = `<i data-lucide="${kebabName}"></i>`;
+                    
+                    // Efficiently create icon only within this ref
                     window.lucide.createIcons({
+                        root: iconRef.current,
                         attrs: {
                             width: size,
                             height: size,
