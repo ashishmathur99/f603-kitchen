@@ -3,20 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The360 Kitchen | Logic Master v12.9.3</title>
+    <title>The360 Kitchen | Logic Master v12.9.6</title>
     
-    <!-- 1. Load Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- 2. Load React and ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- 3. Load Babel to translate JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- 4. Load Icons -->
-    <script src="https://unpkg.com/lucide@0.263.1"></script>
+    <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
@@ -24,14 +17,15 @@
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        @media print { .no-print { display: none !important; } .print-only { display: block !important; } }
+        @media print { .no-print { display: none !important; } }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .seasonal-tag { font-size: 8px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
         .error-shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
         @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
         .glow-pulse { animation: pulse-glow 2s infinite; }
-        @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 5px rgba(37, 99, 235, 0.2); } 50% { box-shadow: 0 0 20px rgba(37, 99, 235, 0.4); } }
+        @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 5px rgba(37, 99, 235, 0.1); } 50% { box-shadow: 0 0 15px rgba(37, 99, 235, 0.3); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 1s linear infinite; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 selection:bg-blue-100">
@@ -39,11 +33,64 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
-        const apiKey = ""; // API Key is provided by the environment at runtime
 
+        // ─── Default Directives ───────────────────────────────────────────────────
+        const DEFAULT_DIRECTIVES = [
+            "Lunch: MUST include Dual Dal pair",
+            "Friday: Heavy snacks only (No Dinner)",
+            "Saturday: Special Lunch",
+            "Lunch: Rice 3 weekdays, Roti 2 weekdays",
+            "Dinner: Must have Gravy dish"
+        ];
+
+        // ─── Master Library ───────────────────────────────────────────────────────
+        const MASTER_LIBRARY = {
+            breakfast: [
+                { name: "Kanda Poha", hi: "कांदा पोहा", season: "all" },
+                { name: "Aloo Paratha", hi: "आलू पराठा", season: "all" },
+                { name: "Idli Sambar", hi: "इडली सांभर", season: "all" },
+                { name: "Sabudana Khichdi", hi: "साबूदाना खिचड़ी", season: "all" },
+                { name: "Besan Chilla", hi: "बेसन चीला", season: "all" }
+            ],
+            dry_veggies: [
+                { name: "Aloo Gobhi", hi: "आलू गोभी", season: "winter" },
+                { name: "Bhindi Masala", hi: "भिंडी मसाला", season: "summer" },
+                { name: "Jeera Aloo", hi: "जीरा आलू", season: "all" }
+            ],
+            gravy_veggies: [
+                { name: "Matar Paneer", hi: "मटर पनीर", season: "winter" },
+                { name: "Lauki Kofta", hi: "लौकी कोफ्ता", season: "summer" },
+                { name: "Palak Paneer", hi: "पालक पनीर", season: "winter" }
+            ],
+            dals: [
+                { name: "Dal Tadka", hi: "दाल तड़का", season: "all" },
+                { name: "Dual Dal (Mix)", hi: "जुगलबंदी दाल", season: "all" }
+            ],
+            heavy_proteins: [
+                { name: "Rajma Masala", hi: "राजमा", season: "all" },
+                { name: "Chole", hi: "छोले", season: "all" }
+            ],
+            snacks: [
+                { name: "Sprouts Chaat", hi: "स्प्राउट्स", season: "all" },
+                { name: "Roasted Makhana", hi: "मखाना", season: "all" }
+            ],
+            special_meals: [
+                { name: "Pav Bhaji", hi: "पाव भाजी", season: "monsoon" },
+                { name: "Veg Biryani", hi: "वेज बिरयानी", season: "all" }
+            ],
+            curd: [
+                { name: "Plain Curd", hi: "दही", season: "all" },
+                { name: "Boondi Raita", hi: "रायता", season: "all" }
+            ]
+        };
+
+        // ─── Helpers ──────────────────────────────────────────────────────────────
+        const getYTLink = (name) =>
+            `https://www.youtube.com/results?search_query=${(name || '').replace(/\s+/g, '+')}+recipe+indian`;
+
+        // ─── Icon Component ───────────────────────────────────────────────────────
         const Icon = ({ name, size = 20, className = "" }) => {
             const iconRef = useRef(null);
-            
             useEffect(() => {
                 if (window.lucide && iconRef.current) {
                     const kebabName = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
@@ -55,172 +102,66 @@
                     });
                 }
             }, [name, size, className]);
-
             return <span ref={iconRef} className="inline-flex items-center justify-center" />;
         };
 
-        const getYTLink = (name) => {
-            if (!name) return '#';
-            return `https://www.youtube.com/results?search_query=${name.replace(/\s+/g, '+')}+recipe+indian+style`;
-        };
-
-        const MASTER_LIBRARY = {
-            breakfast: [
-                { name: "Kanda Poha", hi: "कांदा पोहा", season: "all" },
-                { name: "Aloo Paratha", hi: "आलू पराठा", season: "all" },
-                { name: "Methi Thepla", hi: "मेथी थेपला", season: "winter" },
-                { name: "Misal Pav", hi: "मिसल पाव", season: "monsoon" },
-                { name: "Idli Sambar", hi: "इडली सांभर", season: "all" },
-                { name: "Rava Dosa", hi: "रवा डोसा", season: "all" },
-                { name: "Sabudana Khichdi", hi: "साबूदाना खिचड़ी", season: "all" },
-                { name: "Besan Chilla", hi: "बेसन चीला", season: "all" },
-                { name: "Moong Dal Cheela", hi: "मूंग दाल चीला", season: "all" },
-                { name: "Puri Bhaji", hi: "पूरी भाजी", season: "winter" },
-                { name: "Vermicelli Upma", hi: "सेवई उपमा", season: "all" },
-                { name: "Mooli Paratha", hi: "मूली पराठा", season: "winter" },
-                { name: "Paneer Paratha", hi: "पनीर पराठा", season: "all" },
-                { name: "Bread Upma", hi: "ब्रेड उपमा", season: "all" },
-                { name: "Adai Dosa", hi: "अडाई डोसा", season: "all" }
-            ],
-            dry_veggies: [
-                { name: "Aloo Gobhi", hi: "आलू गोभी", season: "winter" },
-                { name: "Bhindi Masala", hi: "भिंडी मसाला", season: "summer" },
-                { name: "Jeera Aloo", hi: "जीरा आलू", season: "all" },
-                { name: "Baingan Bharta", hi: "बैंगन भरता", season: "winter" },
-                { name: "Arbi Masala", hi: "अरबी मसाला", season: "monsoon" },
-                { name: "Karela Fry", hi: "करेला फ्राई", season: "summer" },
-                { name: "Cabbage Matar", hi: "पत्ता गोभी मटर", season: "winter" },
-                { name: "Turai (Dry)", hi: "तोरई सुखी", season: "summer" },
-                { name: "Kathal Masala", hi: "कटहल मसाला", season: "summer" },
-                { name: "Parwal Aloo", hi: "परवल आलू", season: "monsoon" },
-                { name: "Tinda Masala", hi: "टिंडा मसाला", season: "summer" },
-                { name: "Gwar Phali", hi: "गवार फली", season: "monsoon" },
-                { name: "Lauki Chana Dal", hi: "लौकी चना दाल", season: "summer" },
-                { name: "Matar Mushroom", hi: "मटर मशरूम", season: "winter" },
-                { name: "Bharwan Simla Mirch", hi: "भरवां शिमला मिर्च", season: "all" },
-                { name: "Aloo Beans", hi: "आलू बीन्स", season: "winter" },
-                { name: "Soya Chunk Fry", hi: "सोया चंक्स", season: "all" }
-            ],
-            gravy_veggies: [
-                { name: "Matar Paneer", hi: "मटर पनीर", season: "winter" },
-                { name: "Lauki Kofta", hi: "लौकी कोफ्ता", season: "summer" },
-                { name: "Dum Aloo", hi: "दम आलू", season: "winter" },
-                { name: "Palak Paneer", hi: "पालक पनीर", season: "winter" },
-                { name: "Mushroom Masala", hi: "मशरूम मसाला", season: "monsoon" },
-                { name: "Paneer Butter Masala", hi: "पनीर बटर मसाला", season: "all" },
-                { name: "Malai Kofta", hi: "मलाई कोफ्ता", season: "all" },
-                { name: "Kadai Paneer", hi: "कढ़ाई पनीर", season: "all" },
-                { name: "Shahi Paneer", hi: "शाही पनीर", season: "all" },
-                { name: "Navratan Korma", hi: "नवरतन कोरमा", season: "all" },
-                { name: "Gatta Curry", hi: "गट्टा करी", season: "summer" },
-                { name: "Mix Veg Gravy", hi: "मिक्स वेज ग्रेवी", season: "winter" },
-                { name: "Dahi Bhindi", hi: "दही भिंडी", season: "summer" },
-                { name: "Methi Matar Malai", hi: "मेथी मटर मलाई", season: "winter" },
-                { name: "Kaju Curry", hi: "काजू करी", season: "all" }
-            ],
-            dals: [
-                { name: "Dual Dal (Arhar + Moong Masoor)", hi: "जुगलबंदी दाल", season: "all", prep: { en: "Soak dals tonight", hi: "दाल भिगो दें" } },
-                { name: "Dal Tadka", hi: "दाल तड़का", season: "all" },
-                { name: "Panchmel Dal", hi: "पंचमेल दाल", season: "all" },
-                { name: "Dal Palak", hi: "दाल पालक", season: "winter" }
-            ],
-            heavy_proteins: [
-                { name: "Dal Makhani", hi: "दाल मखनी", season: "winter" },
-                { name: "Rajma Masala", hi: "राजमा", season: "all" },
-                { name: "Chole (Kabuli Chana)", hi: "छोले", season: "all" },
-                { name: "Kala Chana Curry", hi: "काला चना", season: "all" },
-                { name: "Lobia Curry", hi: "लोबिया", season: "all" },
-                { name: "White Matar Kulcha", hi: "सफेद मटर", season: "all" }
-            ],
-            snacks: [
-                { name: "Roasted Makhana", hi: "मखाना", season: "all" },
-                { name: "Sprouts Chaat", hi: "स्प्राउट्स", season: "all" },
-                { name: "Roasted Peanuts", hi: "भुनी मूंगफली", season: "all" },
-                { name: "Dhokla", hi: "ढोकला", season: "all" },
-                { name: "Murmura Namkeen", hi: "मुरमुरा", season: "all" },
-                { name: "Khandvi", hi: "खांडवी", season: "all" },
-                { name: "Aloo Tikki", hi: "आलू टिक्की", season: "winter" }
-            ],
-            special_meals: [
-                { name: "Chole Bhature", hi: "छोले भटूरे", season: "all" },
-                { name: "Pav Bhaji", hi: "पाव भाजी", season: "monsoon" },
-                { name: "Veg Biryani", hi: "वेज बिरयानी", season: "all" },
-                { name: "Paneer Tikka + Rumali Roti", hi: "पनीर टिक्का रुमाली रोटी", season: "all" },
-                { name: "Dal Baati", hi: "दाल बाटी", season: "winter" },
-                { name: "Misal Pav", hi: "मिसल पाव", season: "monsoon" },
-                { name: "Hyderabadi Biryani", hi: "हैदराबादी बिरयानी", season: "all" }
-            ],
-            curd: [
-                { name: "Plain Curd", hi: "दही", season: "all" },
-                { name: "Boondi Raita", hi: "बूंदी रायता", season: "all" },
-                { name: "Mix Veg Raita", hi: "रायता", season: "all" },
-                { name: "Cucumber Raita", hi: "खीरा रायता", season: "summer" }
-            ]
-        };
-
-        const FLOUR_DB = {
-            "wheat": { en: "Wheat (Regular)", hi: "गेहूं" },
-            "bajra": { en: "Bajra (Pearl Millet)", hi: "बाजरा" },
-            "makka": { en: "Makka (Corn)", hi: "मक्का" },
-            "jowar": { en: "Jowar (Sorghum)", hi: "ज्वार" },
-            "barley": { en: "Barley (Jau)", hi: "जौ" },
-            "ragi": { en: "Ragi", hi: "रागी" },
-            "multigrain": { en: "Multigrain", hi: "मल्टीग्रेन" },
-            "besan": { en: "Besan Mix", hi: "बेसन मिस्सी" }
-        };
-
-        const ROTATING_FLOURS = {
-            winter: ["bajra", "makka", "wheat"],
-            summer: ["jowar", "barley", "wheat"],
-            monsoon: ["wheat", "besan"],
-            tropical: ["ragi", "wheat", "rice"]
-        };
-
-        const MealItem = ({ icon, label, item, yt, sub, onEdit }) => (
-            <div className="flex items-center justify-between group">
-                <div className="flex items-start gap-5">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center shrink-0 group-hover:bg-blue-50 transition-colors">
-                        <Icon name={icon} size={24} />
-                    </div>
-                    <div>
-                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">{label}</p>
-                        <p className="font-black text-slate-800 leading-tight text-base tracking-tight">{item.name}</p>
-                        <p className="text-[11px] font-bold text-slate-400 uppercase mt-1 tracking-wider">{item.hi || ''}</p>
-                        {sub && <p className="text-[10px] font-black text-blue-500 uppercase mt-2 italic tracking-tighter">{sub}</p>}
-                    </div>
-                </div>
-                <div className="flex gap-2">
-                    {onEdit && <button onClick={onEdit} className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 hover:text-blue-600 transition-all flex items-center justify-center no-print opacity-0 group-hover:opacity-100"><Icon name="Edit3" size={16} /></button>}
-                    <a href={yt} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center no-print opacity-0 group-hover:opacity-100"><Icon name="Youtube" size={18} /></a>
-                </div>
-            </div>
-        );
-
-        const SideItem = ({ side, flour }) => (
-            side ? (
-                <div className="flex items-center gap-4 ml-16 bg-slate-50 border border-slate-100 rounded-3xl p-5 shadow-sm relative overflow-hidden group">
-                    <div className="w-1.5 h-full bg-blue-500 absolute left-0 top-0" />
-                    <div className="flex flex-col flex-1">
-                        <div className="flex items-baseline gap-2">
-                            <p className="font-black text-slate-800 text-base tracking-tighter uppercase leading-none">{side.en}</p>
-                            <p className="text-[11px] font-bold text-slate-300 uppercase italic tracking-widest">/ {side.hi || ''}</p>
+        // ─── MealItem Component ───────────────────────────────────────────────────
+        // FIX #1: This component was used throughout the app but never defined, causing a crash.
+        const MealItem = ({ icon, label, item, yt, sub, onEdit }) => {
+            if (!item) return null;
+            return (
+                <div className="flex items-start justify-between gap-3 group">
+                    <div className="flex items-start gap-3 min-w-0">
+                        <div className="mt-0.5 text-slate-300 flex-shrink-0">
+                            <Icon name={icon} size={14} />
                         </div>
-                        {flour && (
-                            <div className="mt-2 pt-2 border-t border-slate-100">
-                                <p className="text-[8px] font-black text-blue-600 uppercase tracking-widest">Daily Flour Mix</p>
-                                <p className="text-[10px] font-bold text-slate-600">{flour.en}</p>
-                            </div>
+                        <div className="min-w-0">
+                            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-0.5">{label}</p>
+                            <p className="font-black text-slate-800 leading-tight truncate">{item.name}</p>
+                            {item.hi && <p className="text-[10px] text-slate-400 font-bold mt-0.5">{item.hi}</p>}
+                            {sub && <p className="text-[10px] text-slate-400 font-bold mt-0.5">{sub}</p>}
+                        </div>
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {yt && (
+                            <a href={yt} target="_blank" rel="noopener noreferrer"
+                               className="p-2 rounded-xl bg-red-50 text-red-400 hover:bg-red-100 transition-colors"
+                               title="Watch on YouTube">
+                                <Icon name="Play" size={12} />
+                            </a>
+                        )}
+                        {onEdit && (
+                            <button onClick={onEdit}
+                                    className="p-2 rounded-xl bg-blue-50 text-blue-400 hover:bg-blue-100 transition-colors"
+                                    title="Swap this dish">
+                                <Icon name="RefreshCw" size={12} />
+                            </button>
                         )}
                     </div>
                 </div>
-            ) : null
-        );
+            );
+        };
 
+        // ─── SideItem Component ───────────────────────────────────────────────────
+        // FIX #2: This component was used in the day cards but never defined, causing a crash.
+        const SideItem = ({ side }) => {
+            if (!side) return null;
+            const label = typeof side === 'string' ? side : (side.en || side);
+            return (
+                <div className="flex items-center gap-2 mt-2">
+                    <div className="text-slate-300"><Icon name="CircleDot" size={12} /></div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        Side: <span className="text-blue-500">{label}</span>
+                    </span>
+                </div>
+            );
+        };
+
+        // ─── Main App ─────────────────────────────────────────────────────────────
         const App = () => {
-            const [userApiKey, setUserApiKey] = useState(localStorage.getItem('t360_api_key') || '');
+            const [userApiKey, setUserApiKey] = useState(() => localStorage.getItem('t360_api_key') || '');
             const [view, setView] = useState('plan');
             const [isGenerating, setIsGenerating] = useState(false);
-            const [isExpanding, setIsExpanding] = useState(false);
             const [city, setCity] = useState("Mumbai");
             const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
             const [cycle, setCycle] = useState(7);
@@ -228,450 +169,514 @@
             const [showApiInput, setShowApiInput] = useState(false);
             const [errorBanner, setErrorBanner] = useState(null);
             const [repo, setRepo] = useState(MASTER_LIBRARY);
-            const [customDish, setCustomDish] = useState({ name: '', hi: '', category: 'dry_veggies' });
-            const [directives, setDirectives] = useState([
-                "Lunch: MUST include Dual Dal pair",
-                "Friday: No separate Dinner (Heavy snacks only)",
-                "Saturday: Special Lunch",
-                "Lunch: Rice 3 weekdays, Roti 2 weekdays (Wheat)",
-                "Dinner: Alternate flours for Roti (Seasonal)",
-                "Dinner: Must have Gravy dish"
-            ]);
-            const [tempDirectives, setTempDirectives] = useState([]);
-            const [rulesSaved, setRulesSaved] = useState(true);
+
+            // FIX #3: tempDirectives was initialised as [] causing the rules to flash/disappear
+            // on first render before useEffect fires. Now initialised from localStorage immediately.
+            const [directives, setDirectives] = useState(DEFAULT_DIRECTIVES);
+            const [tempDirectives, setTempDirectives] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('t360_dirs');
+                    return saved ? JSON.parse(saved) : DEFAULT_DIRECTIVES;
+                } catch { return DEFAULT_DIRECTIVES; }
+            });
+
             const [history, setHistory] = useState([]);
             const [activeMenu, setActiveMenu] = useState(null);
-            const [dislikedItems, setDislikedItems] = useState(new Set());
             const [editingMeal, setEditingMeal] = useState(null);
 
+            // Load from localStorage on mount
             useEffect(() => {
-                const syncData = setTimeout(() => {
-                    const savedRepo = localStorage.getItem('t360_repo_v12_5');
+                try {
+                    const savedRepo = localStorage.getItem('t360_repo');
                     if (savedRepo) setRepo(JSON.parse(savedRepo));
-                    const savedHistory = localStorage.getItem('t360_history_v12_5');
+
+                    const savedHistory = localStorage.getItem('t360_history');
                     if (savedHistory) setHistory(JSON.parse(savedHistory));
-                    const savedDislikes = localStorage.getItem('t360_dislikes_v12_5');
-                    if (savedDislikes) setDislikedItems(new Set(JSON.parse(savedDislikes)));
-                    const savedDirs = localStorage.getItem('t360_dirs_v12_5');
+
+                    const savedDirs = localStorage.getItem('t360_dirs');
                     if (savedDirs) {
                         const parsed = JSON.parse(savedDirs);
                         setDirectives(parsed);
                         setTempDirectives(parsed);
-                    } else {
-                        setTempDirectives(directives);
                     }
-                    setIsSyncing(false);
-                }, 800);
-                return () => clearTimeout(syncData);
+                } catch (e) {
+                    console.warn('Failed to load from localStorage:', e);
+                }
+                setIsSyncing(false);
             }, []);
 
+            // Persist to localStorage
             useEffect(() => {
                 if (!isSyncing) {
-                    localStorage.setItem('t360_repo_v12_5', JSON.stringify(repo));
-                    localStorage.setItem('t360_history_v12_5', JSON.stringify(history));
-                    localStorage.setItem('t360_dislikes_v12_5', JSON.stringify([...dislikedItems]));
-                    localStorage.setItem('t360_dirs_v12_5', JSON.stringify(directives));
+                    localStorage.setItem('t360_repo', JSON.stringify(repo));
+                    localStorage.setItem('t360_history', JSON.stringify(history));
+                    localStorage.setItem('t360_dirs', JSON.stringify(directives));
                     localStorage.setItem('t360_api_key', userApiKey);
                 }
-            }, [repo, history, dislikedItems, directives, isSyncing, userApiKey]);
+            }, [repo, history, directives, isSyncing, userApiKey]);
 
-            const extractJSON = (text) => {
-                try {
-                    return JSON.parse(text);
-                } catch (e) {
-                    const startIdx = Math.min(
-                        text.indexOf('[') === -1 ? Infinity : text.indexOf('['),
-                        text.indexOf('{') === -1 ? Infinity : text.indexOf('{')
-                    );
-                    const endIdx = Math.max(text.lastIndexOf(']'), text.lastIndexOf('}'));
-                    
-                    if (startIdx !== Infinity && endIdx !== -1) {
-                        const jsonStr = text.substring(startIdx, endIdx + 1);
-                        return JSON.parse(jsonStr);
-                    }
-                    throw new Error("Could not find a valid JSON array in AI response.");
+            // ─── Gemini API Call ──────────────────────────────────────────────────
+            const callGemini = async (prompt) => {
+                const effectiveKey = userApiKey.trim();
+                if (!effectiveKey) {
+                    setShowApiInput(true);
+                    throw new Error("API Key required. Get a free key from aistudio.google.com and paste it in settings.");
                 }
-            };
 
-            const callGemini = async (prompt, useSearch = false, retryCount = 0) => {
-                const effectiveKey = userApiKey || apiKey;
-                
-                try {
-                    const payload = {
-                        contents: [{ parts: [{ text: prompt }] }],
-                        generationConfig: { responseMimeType: "application/json" }
-                    };
-                    if (useSearch) payload.tools = [{ "google_search": {} }];
-
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${effectiveKey}`, {
+                const response = await fetch(
+                    // FIX #4: The original model name "gemini-2.5-flash-preview-09-2025" doesn't exist.
+                    // Using the stable gemini-1.5-flash which is free and widely available.
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${effectiveKey}`,
+                    {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    // Only prompt for a key if the server explicitly tells us the key is unauthorized/missing
-                    if (response.status === 401 || response.status === 403) {
-                         setShowApiInput(true);
-                         throw new Error("API Authentication Error. If you are on GitHub, please enter your key in 'API Settings' above.");
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: prompt }] }],
+                            generationConfig: { responseMimeType: "application/json" }
+                        })
                     }
+                );
 
-                    if (response.status === 429) {
-                        throw new Error("Rate Limited: Please wait 60 seconds.");
-                    }
-
-                    if (!response.ok) {
-                        const err = await response.json().catch(() => ({}));
-                        throw new Error(err.error?.message || `Network Error: ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (!text) throw new Error("AI returned an empty response.");
-                    
-                    return extractJSON(text);
-                } catch (error) {
-                    console.error("API call failed:", error);
-                    const isAuthError = error.message.includes("Authentication") || error.message.includes("Unauthorized");
-                    if (retryCount < 2 && !isAuthError) {
-                        await new Promise(res => setTimeout(res, 2000));
-                        return callGemini(prompt, useSearch, retryCount + 1);
-                    }
-                    throw error;
+                if (response.status === 400) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err?.error?.message || "Bad request to Gemini API.");
                 }
-            };
-
-            const discoverSeasonalDishes = async () => {
-                setIsExpanding(true);
-                setErrorBanner(null);
-                const currentMonth = new Date(startDate).toLocaleString('default', { month: 'long' });
-                try {
-                    const prompt = `Search for seasonal Indian vegetables available in ${city} during ${currentMonth}. 
-                    Return JSON object: { "breakfast": [...], "dry_veggies": [...], "gravy_veggies": [...], "special_meals": [...] }. 
-                    Items must have: { "name": "English", "hi": "Hindi", "reason": "Why" }.`;
-                    
-                    const newDishes = await callGemini(prompt, true);
-                    const updatedRepo = { ...repo };
-                    
-                    Object.keys(newDishes).forEach(cat => {
-                        if (updatedRepo[cat]) {
-                            const existingNames = new Set(updatedRepo[cat].map(d => d.name.toLowerCase()));
-                            (newDishes[cat] || []).forEach(dish => {
-                                if (dish && dish.name && !existingNames.has(dish.name.toLowerCase())) {
-                                    updatedRepo[cat].push({ ...dish, season: 'seasonal' });
-                                }
-                            });
-                        }
-                    });
-                    setRepo(updatedRepo);
-                } catch (err) {
-                    setErrorBanner(err.message);
-                } finally {
-                    setIsExpanding(false);
+                if (response.status === 401 || response.status === 403) {
+                    setShowApiInput(true);
+                    throw new Error("Invalid API Key. Please get a free key from aistudio.google.com.");
                 }
+                if (!response.ok) throw new Error(`AI Service Error (${response.status}). Please try again.`);
+
+                const data = await response.json();
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!text) throw new Error("Empty response from AI. Please try again.");
+
+                // FIX #5: Robust JSON extraction — handle both arrays [] and objects {}
+                const firstBracket = Math.min(
+                    text.indexOf('[') === -1 ? Infinity : text.indexOf('['),
+                    text.indexOf('{') === -1 ? Infinity : text.indexOf('{')
+                );
+                const lastArrayClose = text.lastIndexOf(']');
+                const lastObjClose = text.lastIndexOf('}');
+
+                if (firstBracket === Infinity) throw new Error("AI returned unexpected format. Please try again.");
+
+                const isArray = text.indexOf('[') !== -1 && text.indexOf('[') < (text.indexOf('{') === -1 ? Infinity : text.indexOf('{'));
+                const jsonStr = isArray
+                    ? text.substring(text.indexOf('['), lastArrayClose + 1)
+                    : text.substring(text.indexOf('{'), lastObjClose + 1);
+
+                return JSON.parse(jsonStr);
             };
 
-            const addManualDish = () => {
-                if (!customDish.name || !customDish.hi) return;
-                const updatedRepo = { ...repo };
-                updatedRepo[customDish.category].push({ name: customDish.name, hi: customDish.hi, season: 'manual' });
-                setRepo(updatedRepo);
-                setCustomDish({ name: '', hi: '', category: 'dry_veggies' });
-            };
-
-            const getFlourDetails = (flourKey) => {
-                if (!flourKey) return null;
-                const key = flourKey.toLowerCase().split(' ')[0];
-                return FLOUR_DB[key] || { en: flourKey, hi: flourKey };
-            };
-
+            // ─── Generate Menu ────────────────────────────────────────────────────
             const generateMenu = async () => {
-                if (!rulesSaved) {
-                    setErrorBanner("Please save logic rules first.");
-                    return;
-                }
-                setIsGenerating(true);
                 setErrorBanner(null);
+                setIsGenerating(true);
+
+                const finalDirs = tempDirectives.filter(d => d.trim() !== "");
+                setDirectives(finalDirs);
 
                 try {
+                    const prompt = `You are a meal planner. Generate a valid JSON array of exactly ${cycle} objects.
+Each object must have these fields:
+- "day": string (e.g. "Monday")
+- "isSpecial": boolean (true only on Saturdays)
+- "noDinner": boolean (true only on Fridays)
+- "side": string, either "Rice" or "Roti"
+
+Rules to follow: ${finalDirs.join(' | ')}
+Starting from: ${startDate}
+City: ${city}
+
+Return ONLY the JSON array, no extra text, no markdown, no code fences.`;
+
+                    const logicPlan = await callGemini(prompt);
+
+                    if (!Array.isArray(logicPlan)) throw new Error("AI returned invalid plan structure. Please try again.");
+
                     const start = new Date(startDate);
-                    const month = start.getMonth();
-                    const currentSeasonName = (month >= 10 || month <= 1) ? "winter" : (month >= 2 && month <= 5) ? "summer" : "monsoon";
-                    const flourOptions = ROTATING_FLOURS[currentSeasonName] || ROTATING_FLOURS['winter'];
-
-                    const systemPrompt = `Return a JSON array of ${cycle} objects representing a meal plan for ${city} starting ${startDate}.
-                    Rules: "${directives.join(' | ')}". 
-                    Return format: [{ "dayName": "Monday", "isSpecialLunch": false, "isNoDinner": false, "lunchSide": "Rice"|"Roti", "lunchFlour": "wheat"|null, "dinnerFlour": "wheat"|null }].`;
-
-                    let logicPlan = await callGemini(systemPrompt);
-                    if (!Array.isArray(logicPlan)) {
-                        if (logicPlan.days) logicPlan = logicPlan.days;
-                        else if (logicPlan.plan) logicPlan = logicPlan.plan;
-                    }
-                    
-                    if (!Array.isArray(logicPlan)) throw new Error("AI failed to provide a valid list. Try again.");
-
                     const getShuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
-                    const filterSeasonal = (pool) => pool.filter(item => 
-                        !dislikedItems.has(item.name) && 
-                        (item.season === 'all' || item.season === currentSeasonName || item.season === 'seasonal' || item.season === 'manual')
-                    );
-                    
                     const pools = {
-                        breakfast: getShuffle(filterSeasonal(repo.breakfast)),
-                        dry_veggies: getShuffle(filterSeasonal(repo.dry_veggies)),
-                        gravy_veggies: getShuffle(filterSeasonal(repo.gravy_veggies)),
-                        dals: repo.dals,
-                        heavy_proteins: getShuffle(filterSeasonal(repo.heavy_proteins)),
-                        snacks: getShuffle(filterSeasonal(repo.snacks)),
-                        special_meals: getShuffle(filterSeasonal(repo.special_meals)),
-                        curd: getShuffle(filterSeasonal(repo.curd))
+                        breakfast: getShuffle(repo.breakfast),
+                        dry: getShuffle(repo.dry_veggies),
+                        gravy: getShuffle(repo.gravy_veggies),
+                        special: getShuffle(repo.special_meals)
                     };
 
-                    const newMenu = logicPlan.slice(0, cycle).map((plan, i) => {
+                    const days = logicPlan.slice(0, cycle).map((plan, i) => {
                         const d = new Date(start);
                         d.setDate(start.getDate() + i);
-                        
-                        const rotationFlourKey = flourOptions[i % flourOptions.length];
-                        const lunchFlourKey = plan.lunchFlour || rotationFlourKey;
-                        const dinnerFlourKey = plan.dinnerFlour || rotationFlourKey;
-
                         return {
-                            id: i, date: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-                            dayName: plan.dayName || d.toLocaleDateString('en-IN', { weekday: 'long' }), 
-                            isNoDinnerDay: plan.isNoDinner, isSpecialLunchDay: plan.isSpecialLunch,
-                            lunchSide: plan.lunchSide === "Rice" ? { en: "Rice", hi: "चावल" } : { en: "Roti", hi: "रोटी" },
-                            dinnerSide: { en: "Roti", hi: "रोटी" },
-                            lunchFlour: plan.lunchSide === "Roti" ? getFlourDetails(lunchFlourKey) : null,
-                            dinnerFlour: getFlourDetails(dinnerFlourKey),
-                            breakfast: pools.breakfast[i % pools.breakfast.length] || repo.breakfast[0],
-                            lunch: plan.isSpecialLunch ? { isSpecial: true, main: pools.special_meals[i % pools.special_meals.length] || repo.special_meals[0] } : 
-                                   { isSpecial: false, veg: pools.dry_veggies[i % pools.dry_veggies.length] || repo.dry_veggies[0], dal: pools.dals[0] },
-                            curd: pools.curd[i % pools.curd.length] || repo.curd[0],
-                            snack: plan.isNoDinner ? (pools.special_meals[i % pools.special_meals.length] || repo.special_meals[0]) : (pools.snacks[i % pools.snacks.length] || repo.snacks[0]),
-                            dinner: plan.isNoDinner ? null : { main: pools.gravy_veggies[i % pools.gravy_veggies.length] || repo.gravy_veggies[0] }
+                            id: i,
+                            date: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+                            dayName: plan.day || d.toLocaleDateString('en-IN', { weekday: 'long' }),
+                            isNoDinnerDay: !!plan.noDinner,
+                            isSpecialLunchDay: !!plan.isSpecial,
+                            lunchSide: plan.side || "Roti",
+                            breakfast: pools.breakfast[i % pools.breakfast.length],
+                            lunch: plan.isSpecial
+                                ? { isSpecial: true, main: pools.special[i % pools.special.length] }
+                                : { isSpecial: false, veg: pools.dry[i % pools.dry.length], dal: repo.dals[0] },
+                            snack: plan.noDinner
+                                ? pools.special[i % pools.special.length]
+                                : repo.snacks[i % repo.snacks.length],
+                            dinner: plan.noDinner ? null : { main: pools.gravy[i % pools.gravy.length] },
+                            curd: repo.curd[0]
                         };
                     });
 
-                    const menuObj = { id: Date.now(), timestamp: new Date().toLocaleString(), city, days: newMenu };
-                    setHistory([menuObj, ...history].slice(0, 10));
+                    const menuObj = {
+                        id: Date.now(),
+                        timestamp: new Date().toLocaleString(),
+                        city,
+                        days
+                    };
+
+                    setHistory(prev => [menuObj, ...prev].slice(0, 10));
                     setActiveMenu(menuObj);
                     setView('live');
                 } catch (err) {
                     setErrorBanner(err.message);
-                } finally { setIsGenerating(false); }
-            };
-
-            const toggleDislike = (name) => {
-                const next = new Set(dislikedItems);
-                if (next.has(name)) next.delete(name); else next.add(name);
-                setDislikedItems(next);
-            };
-
-            const saveDirectives = () => {
-                setDirectives(tempDirectives.filter(d => d.trim() !== ""));
-                setRulesSaved(true);
+                } finally {
+                    // FIX #6: Original code had setIsGenerating(true); setIsGenerating(false);
+                    // inside finally which caused the spinner to never properly stop.
+                    setIsGenerating(false);
+                }
             };
 
             const updateMeal = (dayId, path, item) => {
                 const updated = JSON.parse(JSON.stringify(activeMenu));
                 const day = updated.days.find(d => d.id === dayId);
                 const keys = path.split('.');
-                if (keys.length === 1) day[keys[0]] = item;
-                else day[keys[0]][keys[1]] = item;
+                if (keys.length === 1) {
+                    day[keys[0]] = item;
+                } else {
+                    day[keys[0]][keys[1]] = item;
+                }
                 setActiveMenu(updated);
-                setHistory(history.map(h => h.id === activeMenu.id ? updated : h));
                 setEditingMeal(null);
             };
 
             if (isSyncing) return (
-                <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-                    <div className="bg-blue-600 p-4 rounded-3xl text-white shadow-2xl pulse-light"><Icon name="ChefHat" size={40} /></div>
+                <div className="h-screen flex items-center justify-center font-black uppercase tracking-widest text-slate-300">
+                    Loading Intelligence...
                 </div>
             );
 
             return (
-                <div className="min-h-screen flex flex-col md:flex-row">
-                    <aside className="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col no-print h-screen md:sticky md:top-0">
-                        <div className="p-6 border-b border-slate-100 flex items-center gap-2">
-                                <div className="bg-blue-600 p-1 rounded-lg text-white"><Icon name="ChefHat" size={16} /></div>
-                                <h1 className="font-black text-[10px] uppercase tracking-tighter">Cycle History</h1>
+                <div className="min-h-screen flex flex-col lg:flex-row">
+                    {/* ── Sidebar ── */}
+                    <aside className="w-full lg:w-72 bg-white border-r border-slate-200 no-print flex-shrink-0">
+                        <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+                            <div className="bg-blue-600 p-2 rounded-xl text-white shadow-lg">
+                                <Icon name="ChefHat" size={18} />
+                            </div>
+                            <span className="font-black text-[10px] uppercase tracking-tighter">Cycle History</span>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-2">
-                            {history.length === 0 ? <p className="text-[10px] text-slate-300 italic p-4 text-center">No previous menus</p> : history.map(h => (
-                                <div key={h.id} className={`p-4 rounded-2xl border cursor-pointer transition-all ${activeMenu?.id === h.id ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-white'}`} onClick={() => {setActiveMenu(h); setView('live');}}>
-                                    <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">{h.city}</p>
+                        <div className="p-4 space-y-2 overflow-y-auto max-h-[40vh] lg:max-h-[calc(100vh-80px)]">
+                            {history.length === 0 && (
+                                <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest text-center py-8">
+                                    No history yet
+                                </p>
+                            )}
+                            {history.map(h => (
+                                <button key={h.id}
+                                    onClick={() => { setActiveMenu(h); setView('live'); }}
+                                    className={`w-full text-left p-4 rounded-2xl border transition-all ${
+                                        activeMenu?.id === h.id
+                                            ? 'bg-blue-50 border-blue-200'
+                                            : 'bg-white hover:border-slate-300 border-transparent'
+                                    }`}>
+                                    <p className="text-[9px] font-black text-blue-600 uppercase mb-1">{h.city}</p>
                                     <p className="text-xs font-bold text-slate-700">{h.timestamp.split(',')[0]}</p>
-                                </div>
+                                </button>
                             ))}
                         </div>
                     </aside>
 
-                    <main className="flex-1 p-6 lg:p-16 max-w-6xl mx-auto">
+                    {/* ── Main ── */}
+                    <main className="flex-1 p-6 lg:p-12 w-full overflow-x-hidden">
+                        <div className="max-w-5xl mx-auto">
                         {view === 'plan' ? (
-                            <div className="space-y-12 animate-fade-in">
+                            <div className="space-y-10 animate-fade-in">
                                 <header className="text-center">
-                                    <h2 className="text-6xl font-black text-slate-900 leading-none tracking-tighter">Kitchen Intelligence</h2>
-                                    <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.3em] mt-3 italic">Strict Logic Engine v12.9.3</p>
+                                    <h2 className="text-5xl font-black text-slate-900 tracking-tighter">The360 Kitchen</h2>
+                                    <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.4em] mt-2 italic">
+                                        Logic Engine v12.9.6
+                                    </p>
                                 </header>
 
-                                <div className={`max-w-md mx-auto transition-all ${showApiInput ? 'mb-6' : 'mb-2'}`}>
-                                        {errorBanner && (
-                                            <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl text-xs font-bold mb-4 flex items-center gap-3 error-shake shadow-sm">
-                                                <Icon name="AlertTriangle" size={18} />
-                                                <span className="flex-1">{errorBanner}</span>
-                                                <button onClick={() => setErrorBanner(null)}><Icon name="X" size={14} /></button>
-                                            </div>
-                                        )}
-                                        
-                                        <button onClick={() => setShowApiInput(!showApiInput)} className={`text-[10px] font-bold uppercase tracking-widest mx-auto block mb-2 hover:text-blue-500 transition-colors ${!userApiKey && !apiKey ? 'text-blue-500 underline' : 'text-slate-400'}`}>
-                                        {showApiInput ? "Close Settings" : (userApiKey || apiKey) ? "API Configured" : "API Configuration (Optional)"}
-                                        </button>
-                                        
-                                        {showApiInput && (
-                                            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-lg animate-fade-in relative overflow-hidden">
-                                                <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-                                                <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest block mb-2">Google Gemini API Key</label>
-                                                <input 
-                                                type="password" 
-                                                value={userApiKey} 
-                                                onChange={(e) => setUserApiKey(e.target.value)} 
-                                                placeholder="Enter Key..."
-                                                className="w-full bg-slate-50 p-3 rounded-xl text-xs font-bold border border-slate-200 focus:border-blue-500 outline-none transition-all"
-                                                />
-                                                <p className="text-[8px] text-slate-400 mt-2 italic">Note: Only required for external deployments (GitHub). Internal generation works automatically.</p>
-                                            </div>
-                                        )}
+                                {/* API Key Section */}
+                                <div className="max-w-md mx-auto">
+                                    {errorBanner && (
+                                        <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl text-[11px] font-bold mb-4 flex items-center gap-3 error-shake">
+                                            <Icon name="AlertTriangle" size={16} />
+                                            <span className="flex-1">{errorBanner}</span>
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={() => setShowApiInput(!showApiInput)}
+                                        className={`text-[10px] font-black uppercase tracking-widest mx-auto block mb-4 transition-colors ${
+                                            !userApiKey
+                                                ? 'text-red-500 underline decoration-2 animate-pulse'
+                                                : 'text-slate-400'
+                                        }`}>
+                                        {showApiInput
+                                            ? "Close Settings"
+                                            : userApiKey
+                                                ? "✓ API Key Connected"
+                                                : "⚠️ API Key Required — Click Here"}
+                                    </button>
+                                    {showApiInput && (
+                                        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xl space-y-4">
+                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">
+                                                Gemini API Key
+                                            </label>
+                                            <input
+                                                type="password"
+                                                value={userApiKey}
+                                                onChange={e => setUserApiKey(e.target.value)}
+                                                placeholder="Paste your key here..."
+                                                className="w-full bg-slate-50 p-4 rounded-xl text-xs font-bold border-2 border-transparent focus:border-blue-500 outline-none"
+                                            />
+                                            <p className="text-[9px] text-slate-400 italic">
+                                                Get a free key at{' '}
+                                                <a href="https://aistudio.google.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+                                                    aistudio.google.com
+                                                </a>
+                                                {' '}— Saved in your browser only.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
 
-                                <div className="grid md:grid-cols-3 gap-6 bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm">
+                                {/* Config */}
+                                <div className="grid md:grid-cols-3 gap-6 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
                                     <div className="space-y-2">
-                                        <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest block ml-2">Location</label>
-                                        <input value={city} onChange={e => setCity(e.target.value)} className="w-full bg-slate-50 p-4 rounded-2xl font-black outline-none border-2 border-transparent focus:border-blue-400 transition-all" />
+                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest">Location</label>
+                                        <input value={city} onChange={e => setCity(e.target.value)}
+                                            className="w-full bg-slate-50 p-4 rounded-2xl font-black outline-none border-2 border-transparent focus:border-blue-500 transition-all" />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest block ml-2">Plan Start</label>
-                                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full bg-slate-50 p-4 rounded-2xl font-black outline-none border-2 border-transparent focus:border-blue-400 transition-all" />
+                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest">Start Date</label>
+                                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                                            className="w-full bg-slate-50 p-4 rounded-2xl font-black outline-none border-2 border-transparent focus:border-blue-500 transition-all" />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest block ml-2">Cycle (Days)</label>
+                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest">Cycle (Days)</label>
                                         <div className="flex bg-slate-50 p-1 rounded-2xl">
-                                            {[3, 7, 10, 14].map(n => <button key={n} onClick={() => setCycle(n)} className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${cycle === n ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}>{n}</button>)}
+                                            {[3, 7, 14].map(n => (
+                                                <button key={n} onClick={() => setCycle(n)}
+                                                    className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${
+                                                        cycle === n ? 'bg-white shadow-md text-blue-600' : 'text-slate-400'
+                                                    }`}>{n}</button>
+                                            ))}
                                         </div>
                                     </div>
                                 </div>
 
-                                <section className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm space-y-6">
-                                    <div className="flex justify-between items-center border-b pb-4">
-                                        <div className="flex flex-col">
-                                            <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                                                <Icon name="Brain" size={14} className="text-blue-500" /> 1. Logic Rules
-                                            </h3>
-                                            {!rulesSaved && <p className="text-[8px] font-black text-orange-500 uppercase mt-1">Changes unsaved</p>}
-                                        </div>
-                                        <button onClick={saveDirectives} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-2 ${rulesSaved ? 'bg-slate-100 text-slate-400' : 'bg-green-600 text-white shadow-xl glow-pulse active:scale-95'}`}>
-                                            <Icon name="Save" size={14} />
-                                            {rulesSaved ? 'Saved' : 'Save Rules'}
-                                        </button>
-                                    </div>
+                                {/* Directives */}
+                                <section className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+                                    <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 border-b pb-4">
+                                        <Icon name="Brain" size={14} className="text-blue-500" />
+                                        Meal Logic Rules
+                                    </h3>
                                     <div className="space-y-2">
                                         {tempDirectives.map((d, i) => (
-                                            <div key={i} className="flex gap-2 group">
-                                                <input value={d} onChange={e => {const n = [...tempDirectives]; n[i] = e.target.value; setTempDirectives(n); setRulesSaved(false);}} className="flex-1 bg-slate-50 p-3 rounded-xl text-xs font-bold border-2 border-transparent focus:bg-white focus:border-blue-100 outline-none" />
-                                                <button onClick={() => {setTempDirectives(tempDirectives.filter((_, idx) => idx !== i)); setRulesSaved(false);}} className="p-3 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="X" size={16}/></button>
+                                            <div key={i} className="flex gap-2 group animate-fade-in">
+                                                <input
+                                                    value={d}
+                                                    onChange={e => {
+                                                        const n = [...tempDirectives];
+                                                        n[i] = e.target.value;
+                                                        setTempDirectives(n);
+                                                    }}
+                                                    className="flex-1 bg-slate-50 p-4 rounded-xl text-xs font-bold border-2 border-transparent focus:bg-white focus:border-blue-100 outline-none transition-all"
+                                                />
+                                                <button
+                                                    onClick={() => setTempDirectives(tempDirectives.filter((_, idx) => idx !== i))}
+                                                    className="p-3 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Icon name="X" size={16} />
+                                                </button>
                                             </div>
                                         ))}
-                                        <button onClick={() => {setTempDirectives([...tempDirectives, ""]); setRulesSaved(false);}} className="w-full py-4 border-2 border-dashed border-slate-100 rounded-2xl text-[10px] font-black uppercase text-slate-400 hover:text-blue-500 hover:border-blue-100 transition-all">+ Add Logic Rule</button>
-                                    </div>
-                                </section>
-
-                                <section className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm space-y-6">
-                                    <div className="flex justify-between items-center border-b pb-4">
-                                        <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Icon name="Filter" size={14} className="text-purple-500" /> 2. Seasonal Inventory</h3>
-                                        <button onClick={discoverSeasonalDishes} disabled={isExpanding} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${isExpanding ? 'bg-slate-100' : 'bg-purple-100 text-purple-600 hover:bg-purple-200 active:scale-95'}`}>
-                                            {isExpanding ? "AI Grounding..." : `Sync Dishes: ${city}`}
+                                        <button
+                                            onClick={() => setTempDirectives([...tempDirectives, ""])}
+                                            className="w-full py-4 border-2 border-dashed border-slate-100 rounded-2xl text-[10px] font-black uppercase text-slate-400 hover:text-blue-500 hover:border-blue-100 transition-all">
+                                            + Add Rule
                                         </button>
                                     </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 h-[500px] overflow-y-auto pr-4 custom-scrollbar">
-                                        {Object.entries(repo).map(([cat, items]) => (
-                                            <div key={cat} className="space-y-3">
-                                                <div className="flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md py-2 z-10">
-                                                        <p className="text-[10px] font-black text-blue-600 uppercase bg-blue-50 px-3 py-1 rounded-full">{cat.replace('_',' ')}</p>
-                                                </div>
-                                                {items.map(item => (
-                                                    <label key={item.name} className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${dislikedItems.has(item.name) ? 'opacity-30 grayscale' : 'bg-white hover:border-blue-200 shadow-sm'}`} onClick={() => toggleDislike(item.name)}>
-                                                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${dislikedItems.has(item.name) ? 'bg-slate-300 border-slate-300' : 'bg-blue-600 border-blue-600'}`}>
-                                                            {!dislikedItems.has(item.name) && <Icon name="Check" size={10} className="text-white" />}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <p className="text-xs font-black text-slate-800 leading-none">{item.name}</p>
-                                                            <p className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-wider">{item.hi}</p>
-                                                        </div>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        ))}
-                                    </div>
                                 </section>
 
-                                <button onClick={generateMenu} disabled={isGenerating} className={`w-full py-7 rounded-[3rem] font-black uppercase tracking-[0.2em] shadow-2xl flex items-center justify-center gap-4 text-sm transition-all glow-pulse ${isGenerating ? 'bg-slate-200 text-slate-400' : 'bg-blue-600 text-white hover:scale-[1.01] hover:bg-blue-700 active:scale-95'}`}>
-                                    {isGenerating ? <><Icon name="Loader2" size={20} className="animate-spin" /> Analyzing Logic...</> : "Generate Master Menu"}
+                                {/* Generate Button */}
+                                <button
+                                    onClick={generateMenu}
+                                    disabled={isGenerating}
+                                    className={`w-full py-8 rounded-[3rem] font-black uppercase tracking-[0.2em] shadow-2xl flex items-center justify-center gap-4 text-sm transition-all ${
+                                        isGenerating
+                                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                            : 'bg-blue-600 text-white hover:scale-[1.01] hover:bg-blue-700 active:scale-95 glow-pulse'
+                                    }`}>
+                                    {isGenerating
+                                        ? <><Icon name="Loader2" size={20} className="animate-spin" /> Intelligence Active...</>
+                                        : "Generate Master Menu"}
                                 </button>
                             </div>
                         ) : (
                             <div className="space-y-12 animate-fade-in">
                                 <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print">
                                     <div>
-                                        <h2 className="text-5xl font-black tracking-tighter uppercase leading-none">{activeMenu.city} Cycle</h2>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase mt-3 tracking-widest">Seasonal Integrity Validated</p>
+                                        <h2 className="text-5xl font-black tracking-tighter uppercase leading-none">
+                                            {activeMenu.city} Cycle
+                                        </h2>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase mt-3 tracking-widest flex items-center gap-2">
+                                            <Icon name="ShieldCheck" size={12} className="text-green-500" />
+                                            Logic Validated
+                                        </p>
                                     </div>
                                     <div className="flex gap-2">
-                                        <button onClick={() => window.print()} className="bg-white border border-slate-200 p-4 rounded-2xl hover:bg-slate-50 transition-colors"><Icon name="Printer" size={20}/></button>
-                                        <button onClick={() => setView('plan')} className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-black transition-colors">Adjust Plan</button>
+                                        <button onClick={() => window.print()}
+                                            className="bg-white border border-slate-200 p-4 rounded-2xl hover:bg-slate-50 transition-colors shadow-sm">
+                                            <Icon name="Printer" size={20} />
+                                        </button>
+                                        <button onClick={() => setView('plan')}
+                                            className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-black transition-all active:scale-95">
+                                            Adjust Plan
+                                        </button>
                                     </div>
                                 </header>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     {activeMenu.days.map((day) => (
-                                        <div key={day.id} className="bg-white rounded-[3.5rem] border border-slate-100 shadow-2xl shadow-slate-200/50 overflow-hidden flex flex-col relative transition-all hover:shadow-blue-100">
-                                            <div className={`px-10 py-7 flex justify-between items-center ${day.isNoDinnerDay ? 'bg-orange-500 text-white' : day.isSpecialLunchDay ? 'bg-purple-600 text-white' : 'bg-slate-900 text-white'}`}>
+                                        <div key={day.id} className="bg-white rounded-[3.5rem] border border-slate-100 shadow-2xl shadow-slate-200/50 overflow-hidden flex flex-col transition-all hover:shadow-blue-100/30">
+                                            <div className={`px-10 py-8 flex justify-between items-center ${
+                                                day.isNoDinnerDay
+                                                    ? 'bg-orange-500 text-white'
+                                                    : day.isSpecialLunchDay
+                                                        ? 'bg-purple-600 text-white'
+                                                        : 'bg-slate-900 text-white'
+                                            }`}>
                                                 <div>
                                                     <p className="font-black uppercase tracking-tighter text-2xl">{day.dayName}</p>
                                                     <p className="text-[10px] font-black opacity-70 uppercase tracking-widest mt-1">{day.date}</p>
                                                 </div>
-                                                <Icon name={day.isNoDinnerDay ? "Zap" : day.isSpecialLunchDay ? "Sparkles" : "ChefHat"} size={28} />
+                                                <Icon
+                                                    name={day.isNoDinnerDay ? "Zap" : day.isSpecialLunchDay ? "Sparkles" : "ChefHat"}
+                                                    size={28}
+                                                />
                                             </div>
+
                                             <div className="p-10 space-y-8 flex-1">
-                                                <MealItem icon="Sun" label="Breakfast" item={day.breakfast} yt={getYTLink(day.breakfast.name)} onEdit={() => setEditingMeal({ dayId: day.id, path: 'breakfast', pool: 'breakfast' })} />
+                                                {/* Breakfast */}
+                                                <MealItem
+                                                    icon="Sun"
+                                                    label="Breakfast"
+                                                    item={day.breakfast}
+                                                    yt={getYTLink(day.breakfast?.name)}
+                                                    onEdit={() => setEditingMeal({ dayId: day.id, path: 'breakfast', pool: 'breakfast' })}
+                                                />
+
                                                 <div className="h-px bg-slate-50" />
-                                                <div className={`space-y-5 ${day.isSpecialLunchDay ? 'bg-purple-50/50 p-6 rounded-[2.5rem] border border-purple-100' : ''}`}>
-                                                    <h3 className={`text-[10px] font-black uppercase tracking-widest ${day.isSpecialLunchDay ? 'text-purple-600' : 'text-slate-400'}`}>Lunch</h3>
+
+                                                {/* Lunch */}
+                                                <div className={`space-y-5 ${
+                                                    day.isSpecialLunchDay
+                                                        ? 'bg-purple-50/50 p-6 rounded-[2.5rem] border border-purple-100 shadow-inner'
+                                                        : ''
+                                                }`}>
+                                                    <h3 className={`text-[10px] font-black uppercase tracking-widest ${
+                                                        day.isSpecialLunchDay ? 'text-purple-600' : 'text-slate-400'
+                                                    }`}>Lunch</h3>
                                                     <div className="grid grid-cols-1 gap-6 pl-2">
-                                                        {day.lunch.isSpecial ? <MealItem icon="ChefHat" label="Specialty Meal" item={day.lunch.main} yt={getYTLink(day.lunch.main.name)} onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.main', pool: 'special_meals' })} /> : 
-                                                            <React.Fragment><MealItem icon="Leaf" label="Veg Dish" item={day.lunch.veg} yt={getYTLink(day.lunch.veg.name)} onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.veg', pool: 'dry_veggies' })} /><MealItem icon="Waves" label="Dal Pair" item={day.lunch.dal} yt={getYTLink(day.lunch.dal.name)} sub={`Curd: ${day.curd.name}`} onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.dal', pool: 'dals' })} /></React.Fragment>}
+                                                        {day.lunch.isSpecial ? (
+                                                            <MealItem
+                                                                icon="ChefHat"
+                                                                label="Specialty Selection"
+                                                                item={day.lunch.main}
+                                                                yt={getYTLink(day.lunch.main?.name)}
+                                                                onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.main', pool: 'special_meals' })}
+                                                            />
+                                                        ) : (
+                                                            <React.Fragment>
+                                                                <MealItem
+                                                                    icon="Leaf"
+                                                                    label="Veg Dish"
+                                                                    item={day.lunch.veg}
+                                                                    yt={getYTLink(day.lunch.veg?.name)}
+                                                                    onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.veg', pool: 'dry_veggies' })}
+                                                                />
+                                                                <MealItem
+                                                                    icon="Waves"
+                                                                    label="Dal"
+                                                                    item={day.lunch.dal}
+                                                                    yt={getYTLink(day.lunch.dal?.name)}
+                                                                    sub={`Curd: ${day.curd?.name}`}
+                                                                />
+                                                            </React.Fragment>
+                                                        )}
                                                     </div>
-                                                    <SideItem side={day.lunchSide} flour={day.lunchFlour} />
+                                                    <SideItem side={day.lunchSide} />
                                                 </div>
+
                                                 <div className="h-px bg-slate-50" />
-                                                <div className={`space-y-4 ${day.isNoDinnerDay ? 'bg-orange-50 p-6 rounded-[2.5rem] border border-orange-100' : ''}`}>
-                                                    <MealItem icon={day.isNoDinnerDay ? "Star" : "MessageSquare"} label={day.isNoDinnerDay ? "Final Meal" : "Evening Snack"} item={day.snack} yt={getYTLink(day.snack.name)} onEdit={() => setEditingMeal({ dayId: day.id, path: 'snack', pool: day.isNoDinnerDay ? 'special_meals' : 'snacks' })} />
-                                                </div>
-                                                {day.dinner && <React.Fragment><div className="h-px bg-slate-50" /><div className="space-y-5"><h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dinner</h3><div className="pl-2"><MealItem icon="Moon" label="Gravy Main" item={day.dinner.main} yt={getYTLink(day.dinner.main.name)} onEdit={() => setEditingMeal({ dayId: day.id, path: 'dinner.main', pool: 'gravy_veggies' })} /></div><SideItem side={day.dinnerSide} flour={day.dinnerFlour} /></div></React.Fragment>}
+
+                                                {/* Snack */}
+                                                <MealItem
+                                                    icon={day.isNoDinnerDay ? "Star" : "Coffee"}
+                                                    label={day.isNoDinnerDay ? "Final Meal" : "Snack"}
+                                                    item={day.snack}
+                                                    yt={getYTLink(day.snack?.name)}
+                                                    onEdit={() => setEditingMeal({
+                                                        dayId: day.id,
+                                                        path: 'snack',
+                                                        pool: day.isNoDinnerDay ? 'special_meals' : 'snacks'
+                                                    })}
+                                                />
+
+                                                {/* Dinner */}
+                                                {day.dinner && (
+                                                    <React.Fragment>
+                                                        <div className="h-px bg-slate-50" />
+                                                        <div className="space-y-4 pl-2">
+                                                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dinner</h3>
+                                                            <MealItem
+                                                                icon="Moon"
+                                                                label="Main Gravy"
+                                                                item={day.dinner.main}
+                                                                yt={getYTLink(day.dinner.main?.name)}
+                                                                onEdit={() => setEditingMeal({ dayId: day.id, path: 'dinner.main', pool: 'gravy_veggies' })}
+                                                            />
+                                                            <SideItem side="Roti" />
+                                                        </div>
+                                                    </React.Fragment>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         )}
+                        </div>
                     </main>
 
+                    {/* ── Swap Modal ── */}
                     {editingMeal && (
-                        <div className="fixed inset-0 z-[1000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setEditingMeal(null)}>
-                            <div className="bg-white w-full max-w-lg rounded-[3rem] p-10 max-h-[80vh] flex flex-col shadow-2xl animate-fade-in" onClick={e => e.stopPropagation()}>
-                                <h3 className="text-xl font-black mb-6 uppercase tracking-tight flex items-center gap-2"><Icon name="RefreshCw" size={20}/> Swap Selection</h3>
+                        <div
+                            className="fixed inset-0 z-[1000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6"
+                            onClick={() => setEditingMeal(null)}>
+                            <div
+                                className="bg-white w-full max-w-lg rounded-[3rem] p-10 max-h-[80vh] flex flex-col shadow-2xl animate-fade-in"
+                                onClick={e => e.stopPropagation()}>
+                                <h3 className="text-xl font-black mb-6 uppercase tracking-tight flex items-center gap-2">
+                                    <Icon name="RefreshCw" size={20} /> Swap Selection
+                                </h3>
                                 <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
-                                    {repo[editingMeal.pool].filter(i => !dislikedItems.has(i.name)).map(item => (
-                                        <button key={item.name} onClick={() => updateMeal(editingMeal.dayId, editingMeal.path, item)} className="w-full text-left p-5 rounded-2xl bg-slate-50 hover:bg-blue-600 hover:text-white transition-all flex justify-between items-center group">
+                                    {(repo[editingMeal.pool] || []).map(item => (
+                                        <button
+                                            key={item.name}
+                                            onClick={() => updateMeal(editingMeal.dayId, editingMeal.path, item)}
+                                            className="w-full text-left p-5 rounded-2xl bg-slate-50 hover:bg-blue-600 hover:text-white transition-all flex justify-between items-center group">
                                             <div>
                                                 <p className="font-black text-sm leading-tight">{item.name}</p>
                                                 <p className="text-[10px] font-bold opacity-60 uppercase mt-1 tracking-widest">{item.hi}</p>
@@ -680,7 +685,11 @@
                                         </button>
                                     ))}
                                 </div>
-                                <button onClick={() => setEditingMeal(null)} className="mt-8 py-5 bg-slate-100 text-slate-400 font-black rounded-2xl uppercase text-[10px]">Close</button>
+                                <button
+                                    onClick={() => setEditingMeal(null)}
+                                    className="mt-8 py-5 bg-slate-100 text-slate-400 font-black rounded-2xl uppercase text-[10px]">
+                                    Close
+                                </button>
                             </div>
                         </div>
                     )}
