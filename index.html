@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The360 Kitchen | Logic Master v12.9.6</title>
-    
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js"></script>
-    
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
@@ -24,100 +24,188 @@
         @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
         .glow-pulse { animation: pulse-glow 2s infinite; }
         @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 5px rgba(37, 99, 235, 0.1); } 50% { box-shadow: 0 0 15px rgba(37, 99, 235, 0.3); } }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .animate-spin { animation: spin 1s linear infinite; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 selection:bg-blue-100">
     <div id="root"></div>
-
     <script type="text/babel">
-        const { useState, useEffect, useRef, useMemo } = React;
+        const { useState, useEffect, useRef } = React;
 
-        // ─── Default Directives ───────────────────────────────────────────────────
         const DEFAULT_DIRECTIVES = [
-            "Lunch: MUST include Dual Dal pair",
-            "Friday: Heavy snacks only (No Dinner)",
+            "Friday: No Dinner (Heavy Snacks Only)",
             "Saturday: Special Lunch",
-            "Lunch: Rice 3 weekdays, Roti 2 weekdays",
-            "Dinner: Must have Gravy dish"
+            "Sunday: Special Lunch",
+            "Lunch: Rice on Monday Wednesday Friday, Roti other days",
+            "Lunch: Always include Dal",
+            "Dinner: Always Gravy dish + Roti"
         ];
 
-        // ─── Master Library ───────────────────────────────────────────────────────
         const MASTER_LIBRARY = {
             breakfast: [
-                { name: "Kanda Poha", hi: "कांदा पोहा", season: "all" },
-                { name: "Aloo Paratha", hi: "आलू पराठा", season: "all" },
-                { name: "Idli Sambar", hi: "इडली सांभर", season: "all" },
-                { name: "Sabudana Khichdi", hi: "साबूदाना खिचड़ी", season: "all" },
-                { name: "Besan Chilla", hi: "बेसन चीला", season: "all" }
+                { name: "Kanda Poha", hi: "कांदा पोहा" },
+                { name: "Aloo Paratha", hi: "आलू पराठा" },
+                { name: "Idli Sambar", hi: "इडली सांभर" },
+                { name: "Sabudana Khichdi", hi: "साबूदाना खिचड़ी" },
+                { name: "Besan Chilla", hi: "बेसन चीला" },
+                { name: "Upma", hi: "उपमा" },
+                { name: "Methi Thepla", hi: "मेथी थेपला" }
             ],
             dry_veggies: [
-                { name: "Aloo Gobhi", hi: "आलू गोभी", season: "winter" },
-                { name: "Bhindi Masala", hi: "भिंडी मसाला", season: "summer" },
-                { name: "Jeera Aloo", hi: "जीरा आलू", season: "all" }
+                { name: "Aloo Gobhi", hi: "आलू गोभी" },
+                { name: "Bhindi Masala", hi: "भिंडी मसाला" },
+                { name: "Jeera Aloo", hi: "जीरा आलू" },
+                { name: "Gajar Matar", hi: "गाजर मटर" },
+                { name: "Cabbage Sabzi", hi: "पत्ता गोभी" },
+                { name: "Baingan Bharta", hi: "बैंगन भर्ता" }
             ],
             gravy_veggies: [
-                { name: "Matar Paneer", hi: "मटर पनीर", season: "winter" },
-                { name: "Lauki Kofta", hi: "लौकी कोफ्ता", season: "summer" },
-                { name: "Palak Paneer", hi: "पालक पनीर", season: "winter" }
+                { name: "Matar Paneer", hi: "मटर पनीर" },
+                { name: "Lauki Kofta", hi: "लौकी कोफ्ता" },
+                { name: "Palak Paneer", hi: "पालक पनीर" },
+                { name: "Kadhi Pakora", hi: "कढ़ी पकोड़ा" },
+                { name: "Shahi Paneer", hi: "शाही पनीर" },
+                { name: "Aloo Matar", hi: "आलू मटर" }
             ],
             dals: [
-                { name: "Dal Tadka", hi: "दाल तड़का", season: "all" },
-                { name: "Dual Dal (Mix)", hi: "जुगलबंदी दाल", season: "all" }
-            ],
-            heavy_proteins: [
-                { name: "Rajma Masala", hi: "राजमा", season: "all" },
-                { name: "Chole", hi: "छोले", season: "all" }
+                { name: "Dal Tadka", hi: "दाल तड़का" },
+                { name: "Dual Dal (Mix)", hi: "जुगलबंदी दाल" },
+                { name: "Chana Dal", hi: "चना दाल" },
+                { name: "Masoor Dal", hi: "मसूर दाल" },
+                { name: "Moong Dal", hi: "मूंग दाल" }
             ],
             snacks: [
-                { name: "Sprouts Chaat", hi: "स्प्राउट्स", season: "all" },
-                { name: "Roasted Makhana", hi: "मखाना", season: "all" }
+                { name: "Sprouts Chaat", hi: "स्प्राउट्स चाट" },
+                { name: "Roasted Makhana", hi: "मखाना" },
+                { name: "Fruit Bowl", hi: "फ्रूट बाउल" },
+                { name: "Peanut Chaat", hi: "मूंगफली चाट" }
             ],
             special_meals: [
-                { name: "Pav Bhaji", hi: "पाव भाजी", season: "monsoon" },
-                { name: "Veg Biryani", hi: "वेज बिरयानी", season: "all" }
+                { name: "Pav Bhaji", hi: "पाव भाजी" },
+                { name: "Veg Biryani", hi: "वेज बिरयानी" },
+                { name: "Chole Bhature", hi: "छोले भटूरे" },
+                { name: "Rajma Rice", hi: "राजमा चावल" },
+                { name: "Dal Baati", hi: "दाल बाटी" },
+                { name: "Veg Pulao", hi: "वेज पुलाव" }
             ],
             curd: [
-                { name: "Plain Curd", hi: "दही", season: "all" },
-                { name: "Boondi Raita", hi: "रायता", season: "all" }
+                { name: "Plain Curd", hi: "दही" },
+                { name: "Boondi Raita", hi: "बूंदी रायता" },
+                { name: "Cucumber Raita", hi: "खीरे का रायता" }
             ]
         };
 
-        // ─── Helpers ──────────────────────────────────────────────────────────────
-        const getYTLink = (name) =>
-            `https://www.youtube.com/results?search_query=${(name || '').replace(/\s+/g, '+')}+recipe+indian`;
+        const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
-        // ─── Icon Component ───────────────────────────────────────────────────────
+        // ── LOCAL RULE ENGINE ──────────────────────────────────────────────────────
+        // Parses plain-English directives like:
+        //   "Friday: No Dinner"
+        //   "Saturday: Special Lunch"
+        //   "Lunch: Rice on Monday Wednesday Friday"
+        //   "Lunch: Rice 3 weekdays, Roti 2 weekdays"
+        // No API. No internet. Works 100% offline.
+        // ──────────────────────────────────────────────────────────────────────────
+        const parseDirectives = (directives) => {
+            const rules = {
+                noDinnerDays:  new Set(),
+                specialDays:   new Set(),
+                riceWeekdays:  new Set(),
+                alwaysDal:     true,
+                alwaysGravy:   true,
+            };
+
+            directives.forEach(raw => {
+                const d = raw.toLowerCase().trim();
+                if (!d) return;
+
+                // Day-specific: "Friday: No Dinner" / "Saturday: Special Lunch"
+                DAY_NAMES.forEach((name, idx) => {
+                    if (d.startsWith(name.toLowerCase() + ':') || d.startsWith(name.toLowerCase() + ' :')) {
+                        const rest = d.split(':').slice(1).join(':');
+                        if (/no dinner|heavy snack|snacks only|no-dinner/.test(rest)) rules.noDinnerDays.add(idx);
+                        if (/special/.test(rest)) rules.specialDays.add(idx);
+                    }
+                });
+
+                // "Rice on Monday Wednesday Friday"
+                const riceOnMatch = d.match(/rice\s+on\s+([\w\s,]+)/);
+                if (riceOnMatch) {
+                    riceOnMatch[1].split(/[\s,]+/).forEach(w => {
+                        const idx = DAY_NAMES.findIndex(n => n.toLowerCase().startsWith(w.trim().slice(0,3)));
+                        if (idx !== -1) rules.riceWeekdays.add(idx);
+                    });
+                }
+
+                // "Rice 3 weekdays"
+                const riceCountMatch = d.match(/rice\s+(\d)\s+weekday/);
+                if (riceCountMatch && rules.riceWeekdays.size === 0) {
+                    [1,3,5].slice(0, parseInt(riceCountMatch[1])).forEach(i => rules.riceWeekdays.add(i));
+                }
+
+                if (/no dal|skip dal/.test(d)) rules.alwaysDal = false;
+                if (/no gravy|skip gravy/.test(d)) rules.alwaysGravy = false;
+            });
+
+            // Default Rice: Mon, Wed, Fri
+            if (rules.riceWeekdays.size === 0) [1,3,5].forEach(i => rules.riceWeekdays.add(i));
+
+            return rules;
+        };
+
+        const buildLogicPlan = (startDate, cycle, directives) => {
+            const rules = parseDirectives(directives);
+            const start = new Date(startDate);
+            return Array.from({ length: cycle }, (_, i) => {
+                const d = new Date(start);
+                d.setDate(start.getDate() + i);
+                const dayIdx = d.getDay();
+                const isWeekend = dayIdx === 0 || dayIdx === 6;
+                return {
+                    day: DAY_NAMES[dayIdx],
+                    noDinner:  rules.noDinnerDays.has(dayIdx),
+                    isSpecial: rules.specialDays.has(dayIdx),
+                    side: rules.riceWeekdays.has(dayIdx) || isWeekend ? "Rice" : "Roti",
+                    alwaysDal:   rules.alwaysDal,
+                    alwaysGravy: rules.alwaysGravy,
+                };
+            });
+        };
+
+        const getYTLink = (name) =>
+            `https://www.youtube.com/results?search_query=${(name||'').replace(/\s+/g,'+')}+recipe+indian`;
+
+        const shuffle = arr => [...arr].sort(() => Math.random() - 0.5);
+
+        const makeRotator = (arr) => {
+            const pool = shuffle(arr);
+            let idx = 0;
+            return () => pool[idx++ % pool.length];
+        };
+
         const Icon = ({ name, size = 20, className = "" }) => {
-            const iconRef = useRef(null);
+            const ref = useRef(null);
             useEffect(() => {
-                if (window.lucide && iconRef.current) {
-                    const kebabName = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-                    iconRef.current.innerHTML = `<i data-lucide="${kebabName}"></i>`;
+                if (window.lucide && ref.current) {
+                    const kname = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+                    ref.current.innerHTML = `<i data-lucide="${kname}"></i>`;
                     window.lucide.createIcons({
-                        root: iconRef.current,
+                        root: ref.current,
                         attrs: { width: size, height: size, 'stroke-width': 2.5, class: className },
                         nameAttr: 'data-lucide'
                     });
                 }
             }, [name, size, className]);
-            return <span ref={iconRef} className="inline-flex items-center justify-center" />;
+            return <span ref={ref} className="inline-flex items-center justify-center" />;
         };
 
-        // ─── MealItem Component ───────────────────────────────────────────────────
-        // FIX #1: This component was used throughout the app but never defined, causing a crash.
         const MealItem = ({ icon, label, item, yt, sub, onEdit }) => {
             if (!item) return null;
             return (
                 <div className="flex items-start justify-between gap-3 group">
                     <div className="flex items-start gap-3 min-w-0">
-                        <div className="mt-0.5 text-slate-300 flex-shrink-0">
-                            <Icon name={icon} size={14} />
-                        </div>
+                        <div className="mt-0.5 text-slate-300 flex-shrink-0"><Icon name={icon} size={14} /></div>
                         <div className="min-w-0">
                             <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-0.5">{label}</p>
-                            <p className="font-black text-slate-800 leading-tight truncate">{item.name}</p>
+                            <p className="font-black text-slate-800 leading-tight">{item.name}</p>
                             {item.hi && <p className="text-[10px] text-slate-400 font-bold mt-0.5">{item.hi}</p>}
                             {sub && <p className="text-[10px] text-slate-400 font-bold mt-0.5">{sub}</p>}
                         </div>
@@ -125,15 +213,13 @@
                     <div className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                         {yt && (
                             <a href={yt} target="_blank" rel="noopener noreferrer"
-                               className="p-2 rounded-xl bg-red-50 text-red-400 hover:bg-red-100 transition-colors"
-                               title="Watch on YouTube">
+                               className="p-2 rounded-xl bg-red-50 text-red-400 hover:bg-red-100 transition-colors">
                                 <Icon name="Play" size={12} />
                             </a>
                         )}
                         {onEdit && (
                             <button onClick={onEdit}
-                                    className="p-2 rounded-xl bg-blue-50 text-blue-400 hover:bg-blue-100 transition-colors"
-                                    title="Swap this dish">
+                                    className="p-2 rounded-xl bg-blue-50 text-blue-400 hover:bg-blue-100 transition-colors">
                                 <Icon name="RefreshCw" size={12} />
                             </button>
                         )}
@@ -142,206 +228,103 @@
             );
         };
 
-        // ─── SideItem Component ───────────────────────────────────────────────────
-        // FIX #2: This component was used in the day cards but never defined, causing a crash.
         const SideItem = ({ side }) => {
             if (!side) return null;
-            const label = typeof side === 'string' ? side : (side.en || side);
             return (
                 <div className="flex items-center gap-2 mt-2">
                     <div className="text-slate-300"><Icon name="CircleDot" size={12} /></div>
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                        Side: <span className="text-blue-500">{label}</span>
+                        Side: <span className="text-blue-500">{side}</span>
                     </span>
                 </div>
             );
         };
 
-        // ─── Main App ─────────────────────────────────────────────────────────────
+        const RuleBadge = ({ icon, label, color }) => (
+            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${color}`}>
+                <Icon name={icon} size={10} />{label}
+            </span>
+        );
+
         const App = () => {
-            const [userApiKey, setUserApiKey] = useState(() => localStorage.getItem('t360_api_key') || '');
-            const [view, setView] = useState('plan');
-            const [isGenerating, setIsGenerating] = useState(false);
-            const [city, setCity] = useState("Mumbai");
-            const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-            const [cycle, setCycle] = useState(7);
-            const [isSyncing, setIsSyncing] = useState(true);
-            const [showApiInput, setShowApiInput] = useState(false);
+            const [view, setView]               = useState('plan');
+            const [city, setCity]               = useState('Mumbai');
+            const [startDate, setStartDate]     = useState(new Date().toISOString().split('T')[0]);
+            const [cycle, setCycle]             = useState(7);
+            const [isSyncing, setIsSyncing]     = useState(true);
             const [errorBanner, setErrorBanner] = useState(null);
-            const [repo, setRepo] = useState(MASTER_LIBRARY);
-
-            // FIX #3: tempDirectives was initialised as [] causing the rules to flash/disappear
-            // on first render before useEffect fires. Now initialised from localStorage immediately.
-            const [directives, setDirectives] = useState(DEFAULT_DIRECTIVES);
-            const [tempDirectives, setTempDirectives] = useState(() => {
-                try {
-                    const saved = localStorage.getItem('t360_dirs');
-                    return saved ? JSON.parse(saved) : DEFAULT_DIRECTIVES;
-                } catch { return DEFAULT_DIRECTIVES; }
+            const [repo, setRepo]               = useState(MASTER_LIBRARY);
+            const [directives, setDirectives]   = useState(DEFAULT_DIRECTIVES);
+            const [tempDirs, setTempDirs]       = useState(() => {
+                try { const s = localStorage.getItem('t360_dirs'); return s ? JSON.parse(s) : DEFAULT_DIRECTIVES; }
+                catch { return DEFAULT_DIRECTIVES; }
             });
-
-            const [history, setHistory] = useState([]);
-            const [activeMenu, setActiveMenu] = useState(null);
+            const [history, setHistory]         = useState([]);
+            const [activeMenu, setActiveMenu]   = useState(null);
             const [editingMeal, setEditingMeal] = useState(null);
+            const [parsedRules, setParsedRules] = useState(() => parseDirectives(DEFAULT_DIRECTIVES));
 
-            // Load from localStorage on mount
             useEffect(() => {
                 try {
-                    const savedRepo = localStorage.getItem('t360_repo');
-                    if (savedRepo) setRepo(JSON.parse(savedRepo));
-
-                    const savedHistory = localStorage.getItem('t360_history');
-                    if (savedHistory) setHistory(JSON.parse(savedHistory));
-
-                    const savedDirs = localStorage.getItem('t360_dirs');
-                    if (savedDirs) {
-                        const parsed = JSON.parse(savedDirs);
-                        setDirectives(parsed);
-                        setTempDirectives(parsed);
-                    }
-                } catch (e) {
-                    console.warn('Failed to load from localStorage:', e);
-                }
+                    const r = localStorage.getItem('t360_repo');    if (r) setRepo(JSON.parse(r));
+                    const h = localStorage.getItem('t360_history'); if (h) setHistory(JSON.parse(h));
+                    const d = localStorage.getItem('t360_dirs');
+                    if (d) { const p = JSON.parse(d); setDirectives(p); setTempDirs(p); setParsedRules(parseDirectives(p)); }
+                } catch(e) {}
                 setIsSyncing(false);
             }, []);
 
-            // Persist to localStorage
             useEffect(() => {
                 if (!isSyncing) {
-                    localStorage.setItem('t360_repo', JSON.stringify(repo));
+                    localStorage.setItem('t360_repo',    JSON.stringify(repo));
                     localStorage.setItem('t360_history', JSON.stringify(history));
-                    localStorage.setItem('t360_dirs', JSON.stringify(directives));
-                    localStorage.setItem('t360_api_key', userApiKey);
+                    localStorage.setItem('t360_dirs',    JSON.stringify(directives));
                 }
-            }, [repo, history, directives, isSyncing, userApiKey]);
+            }, [repo, history, directives, isSyncing]);
 
-            // ─── Gemini API Call ──────────────────────────────────────────────────
-            const callGemini = async (prompt) => {
-                const effectiveKey = userApiKey.trim();
-                if (!effectiveKey) {
-                    setShowApiInput(true);
-                    throw new Error("API Key required. Get a free key from aistudio.google.com and paste it in settings.");
-                }
+            useEffect(() => { setParsedRules(parseDirectives(tempDirs)); }, [tempDirs]);
 
-                const response = await fetch(
-                    // FIX #4: The original model name "gemini-2.5-flash-preview-09-2025" doesn't exist.
-                    // Using the stable gemini-1.5-flash which is free and widely available.
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${effectiveKey}`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: prompt }] }],
-                            generationConfig: { responseMimeType: "application/json" }
-                        })
-                    }
-                );
-
-                if (response.status === 400) {
-                    const err = await response.json().catch(() => ({}));
-                    throw new Error(err?.error?.message || "Bad request to Gemini API.");
-                }
-                if (response.status === 401 || response.status === 403) {
-                    setShowApiInput(true);
-                    throw new Error("Invalid API Key. Please get a free key from aistudio.google.com.");
-                }
-                if (!response.ok) throw new Error(`AI Service Error (${response.status}). Please try again.`);
-
-                const data = await response.json();
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (!text) throw new Error("Empty response from AI. Please try again.");
-
-                // FIX #5: Robust JSON extraction — handle both arrays [] and objects {}
-                const firstBracket = Math.min(
-                    text.indexOf('[') === -1 ? Infinity : text.indexOf('['),
-                    text.indexOf('{') === -1 ? Infinity : text.indexOf('{')
-                );
-                const lastArrayClose = text.lastIndexOf(']');
-                const lastObjClose = text.lastIndexOf('}');
-
-                if (firstBracket === Infinity) throw new Error("AI returned unexpected format. Please try again.");
-
-                const isArray = text.indexOf('[') !== -1 && text.indexOf('[') < (text.indexOf('{') === -1 ? Infinity : text.indexOf('{'));
-                const jsonStr = isArray
-                    ? text.substring(text.indexOf('['), lastArrayClose + 1)
-                    : text.substring(text.indexOf('{'), lastObjClose + 1);
-
-                return JSON.parse(jsonStr);
-            };
-
-            // ─── Generate Menu ────────────────────────────────────────────────────
-            const generateMenu = async () => {
+            const generateMenu = () => {
                 setErrorBanner(null);
-                setIsGenerating(true);
-
-                const finalDirs = tempDirectives.filter(d => d.trim() !== "");
+                const finalDirs = tempDirs.filter(d => d.trim() !== "");
                 setDirectives(finalDirs);
-
                 try {
-                    const prompt = `You are a meal planner. Generate a valid JSON array of exactly ${cycle} objects.
-Each object must have these fields:
-- "day": string (e.g. "Monday")
-- "isSpecial": boolean (true only on Saturdays)
-- "noDinner": boolean (true only on Fridays)
-- "side": string, either "Rice" or "Roti"
-
-Rules to follow: ${finalDirs.join(' | ')}
-Starting from: ${startDate}
-City: ${city}
-
-Return ONLY the JSON array, no extra text, no markdown, no code fences.`;
-
-                    const logicPlan = await callGemini(prompt);
-
-                    if (!Array.isArray(logicPlan)) throw new Error("AI returned invalid plan structure. Please try again.");
-
+                    const logicPlan = buildLogicPlan(startDate, cycle, finalDirs);
                     const start = new Date(startDate);
-                    const getShuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
-                    const pools = {
-                        breakfast: getShuffle(repo.breakfast),
-                        dry: getShuffle(repo.dry_veggies),
-                        gravy: getShuffle(repo.gravy_veggies),
-                        special: getShuffle(repo.special_meals)
-                    };
+                    const nb = makeRotator(repo.breakfast);
+                    const nd = makeRotator(repo.dry_veggies);
+                    const ng = makeRotator(repo.gravy_veggies);
+                    const ndal = makeRotator(repo.dals);
+                    const ns = makeRotator(repo.special_meals);
+                    const nsnack = makeRotator(repo.snacks);
+                    const nc = makeRotator(repo.curd);
 
-                    const days = logicPlan.slice(0, cycle).map((plan, i) => {
+                    const days = logicPlan.map((plan, i) => {
                         const d = new Date(start);
                         d.setDate(start.getDate() + i);
                         return {
                             id: i,
                             date: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-                            dayName: plan.day || d.toLocaleDateString('en-IN', { weekday: 'long' }),
-                            isNoDinnerDay: !!plan.noDinner,
-                            isSpecialLunchDay: !!plan.isSpecial,
-                            lunchSide: plan.side || "Roti",
-                            breakfast: pools.breakfast[i % pools.breakfast.length],
+                            dayName: plan.day,
+                            isNoDinnerDay: plan.noDinner,
+                            isSpecialLunchDay: plan.isSpecial,
+                            lunchSide: plan.side,
+                            breakfast: nb(),
                             lunch: plan.isSpecial
-                                ? { isSpecial: true, main: pools.special[i % pools.special.length] }
-                                : { isSpecial: false, veg: pools.dry[i % pools.dry.length], dal: repo.dals[0] },
-                            snack: plan.noDinner
-                                ? pools.special[i % pools.special.length]
-                                : repo.snacks[i % repo.snacks.length],
-                            dinner: plan.noDinner ? null : { main: pools.gravy[i % pools.gravy.length] },
-                            curd: repo.curd[0]
+                                ? { isSpecial: true, main: ns() }
+                                : { isSpecial: false, veg: nd(), dal: ndal() },
+                            snack: plan.noDinner ? ns() : nsnack(),
+                            dinner: plan.noDinner ? null : { main: ng() },
+                            curd: nc()
                         };
                     });
 
-                    const menuObj = {
-                        id: Date.now(),
-                        timestamp: new Date().toLocaleString(),
-                        city,
-                        days
-                    };
-
+                    const menuObj = { id: Date.now(), timestamp: new Date().toLocaleString(), city, days };
                     setHistory(prev => [menuObj, ...prev].slice(0, 10));
                     setActiveMenu(menuObj);
                     setView('live');
-                } catch (err) {
-                    setErrorBanner(err.message);
-                } finally {
-                    // FIX #6: Original code had setIsGenerating(true); setIsGenerating(false);
-                    // inside finally which caused the spinner to never properly stop.
-                    setIsGenerating(false);
+                } catch(err) {
+                    setErrorBanner("Could not build plan: " + err.message);
                 }
             };
 
@@ -349,45 +332,28 @@ Return ONLY the JSON array, no extra text, no markdown, no code fences.`;
                 const updated = JSON.parse(JSON.stringify(activeMenu));
                 const day = updated.days.find(d => d.id === dayId);
                 const keys = path.split('.');
-                if (keys.length === 1) {
-                    day[keys[0]] = item;
-                } else {
-                    day[keys[0]][keys[1]] = item;
-                }
+                if (keys.length === 1) day[keys[0]] = item;
+                else day[keys[0]][keys[1]] = item;
                 setActiveMenu(updated);
                 setEditingMeal(null);
             };
 
             if (isSyncing) return (
-                <div className="h-screen flex items-center justify-center font-black uppercase tracking-widest text-slate-300">
-                    Loading Intelligence...
-                </div>
+                <div className="h-screen flex items-center justify-center font-black uppercase tracking-widest text-slate-300">Loading…</div>
             );
 
             return (
                 <div className="min-h-screen flex flex-col lg:flex-row">
-                    {/* ── Sidebar ── */}
                     <aside className="w-full lg:w-72 bg-white border-r border-slate-200 no-print flex-shrink-0">
                         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-                            <div className="bg-blue-600 p-2 rounded-xl text-white shadow-lg">
-                                <Icon name="ChefHat" size={18} />
-                            </div>
+                            <div className="bg-blue-600 p-2 rounded-xl text-white shadow-lg"><Icon name="ChefHat" size={18} /></div>
                             <span className="font-black text-[10px] uppercase tracking-tighter">Cycle History</span>
                         </div>
                         <div className="p-4 space-y-2 overflow-y-auto max-h-[40vh] lg:max-h-[calc(100vh-80px)]">
-                            {history.length === 0 && (
-                                <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest text-center py-8">
-                                    No history yet
-                                </p>
-                            )}
+                            {history.length === 0 && <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest text-center py-8">No history yet</p>}
                             {history.map(h => (
-                                <button key={h.id}
-                                    onClick={() => { setActiveMenu(h); setView('live'); }}
-                                    className={`w-full text-left p-4 rounded-2xl border transition-all ${
-                                        activeMenu?.id === h.id
-                                            ? 'bg-blue-50 border-blue-200'
-                                            : 'bg-white hover:border-slate-300 border-transparent'
-                                    }`}>
+                                <button key={h.id} onClick={() => { setActiveMenu(h); setView('live'); }}
+                                    className={`w-full text-left p-4 rounded-2xl border transition-all ${activeMenu?.id === h.id ? 'bg-blue-50 border-blue-200' : 'bg-white hover:border-slate-300 border-transparent'}`}>
                                     <p className="text-[9px] font-black text-blue-600 uppercase mb-1">{h.city}</p>
                                     <p className="text-xs font-bold text-slate-700">{h.timestamp.split(',')[0]}</p>
                                 </button>
@@ -395,63 +361,21 @@ Return ONLY the JSON array, no extra text, no markdown, no code fences.`;
                         </div>
                     </aside>
 
-                    {/* ── Main ── */}
                     <main className="flex-1 p-6 lg:p-12 w-full overflow-x-hidden">
                         <div className="max-w-5xl mx-auto">
                         {view === 'plan' ? (
                             <div className="space-y-10 animate-fade-in">
                                 <header className="text-center">
                                     <h2 className="text-5xl font-black text-slate-900 tracking-tighter">The360 Kitchen</h2>
-                                    <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.4em] mt-2 italic">
-                                        Logic Engine v12.9.6
-                                    </p>
+                                    <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.4em] mt-2">Local Logic Engine — No API Required</p>
                                 </header>
 
-                                {/* API Key Section */}
-                                <div className="max-w-md mx-auto">
-                                    {errorBanner && (
-                                        <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl text-[11px] font-bold mb-4 flex items-center gap-3 error-shake">
-                                            <Icon name="AlertTriangle" size={16} />
-                                            <span className="flex-1">{errorBanner}</span>
-                                        </div>
-                                    )}
-                                    <button
-                                        onClick={() => setShowApiInput(!showApiInput)}
-                                        className={`text-[10px] font-black uppercase tracking-widest mx-auto block mb-4 transition-colors ${
-                                            !userApiKey
-                                                ? 'text-red-500 underline decoration-2 animate-pulse'
-                                                : 'text-slate-400'
-                                        }`}>
-                                        {showApiInput
-                                            ? "Close Settings"
-                                            : userApiKey
-                                                ? "✓ API Key Connected"
-                                                : "⚠️ API Key Required — Click Here"}
-                                    </button>
-                                    {showApiInput && (
-                                        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xl space-y-4">
-                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">
-                                                Gemini API Key
-                                            </label>
-                                            <input
-                                                type="password"
-                                                value={userApiKey}
-                                                onChange={e => setUserApiKey(e.target.value)}
-                                                placeholder="Paste your key here..."
-                                                className="w-full bg-slate-50 p-4 rounded-xl text-xs font-bold border-2 border-transparent focus:border-blue-500 outline-none"
-                                            />
-                                            <p className="text-[9px] text-slate-400 italic">
-                                                Get a free key at{' '}
-                                                <a href="https://aistudio.google.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-                                                    aistudio.google.com
-                                                </a>
-                                                {' '}— Saved in your browser only.
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
+                                {errorBanner && (
+                                    <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl text-[11px] font-bold flex items-center gap-3 error-shake">
+                                        <Icon name="AlertTriangle" size={16} /><span className="flex-1">{errorBanner}</span>
+                                    </div>
+                                )}
 
-                                {/* Config */}
                                 <div className="grid md:grid-cols-3 gap-6 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
                                     <div className="space-y-2">
                                         <label className="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest">Location</label>
@@ -466,82 +390,88 @@ Return ONLY the JSON array, no extra text, no markdown, no code fences.`;
                                     <div className="space-y-2">
                                         <label className="text-[9px] font-black uppercase text-slate-400 ml-2 tracking-widest">Cycle (Days)</label>
                                         <div className="flex bg-slate-50 p-1 rounded-2xl">
-                                            {[3, 7, 14].map(n => (
+                                            {[3,7,14].map(n => (
                                                 <button key={n} onClick={() => setCycle(n)}
-                                                    className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${
-                                                        cycle === n ? 'bg-white shadow-md text-blue-600' : 'text-slate-400'
-                                                    }`}>{n}</button>
+                                                    className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${cycle===n ? 'bg-white shadow-md text-blue-600' : 'text-slate-400'}`}>{n}</button>
                                             ))}
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Directives */}
                                 <section className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
-                                    <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 border-b pb-4">
-                                        <Icon name="Brain" size={14} className="text-blue-500" />
-                                        Meal Logic Rules
-                                    </h3>
+                                    <div className="flex items-start justify-between border-b pb-4 gap-4 flex-wrap">
+                                        <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                                            <Icon name="Settings2" size={14} className="text-blue-500" />House Rules
+                                        </h3>
+                                        <p className="text-[9px] text-slate-400 font-bold leading-relaxed text-right">
+                                            Try: <span className="text-blue-400">"Friday: No Dinner"</span> or <span className="text-blue-400">"Saturday: Special Lunch"</span>
+                                        </p>
+                                    </div>
                                     <div className="space-y-2">
-                                        {tempDirectives.map((d, i) => (
+                                        {tempDirs.map((d, i) => (
                                             <div key={i} className="flex gap-2 group animate-fade-in">
-                                                <input
-                                                    value={d}
-                                                    onChange={e => {
-                                                        const n = [...tempDirectives];
-                                                        n[i] = e.target.value;
-                                                        setTempDirectives(n);
-                                                    }}
-                                                    className="flex-1 bg-slate-50 p-4 rounded-xl text-xs font-bold border-2 border-transparent focus:bg-white focus:border-blue-100 outline-none transition-all"
-                                                />
-                                                <button
-                                                    onClick={() => setTempDirectives(tempDirectives.filter((_, idx) => idx !== i))}
+                                                <input value={d}
+                                                    onChange={e => { const n=[...tempDirs]; n[i]=e.target.value; setTempDirs(n); }}
+                                                    placeholder='e.g. "Friday: No Dinner" or "Saturday: Special Lunch"'
+                                                    className="flex-1 bg-slate-50 p-4 rounded-xl text-xs font-bold border-2 border-transparent focus:bg-white focus:border-blue-100 outline-none transition-all" />
+                                                <button onClick={() => setTempDirs(tempDirs.filter((_,idx)=>idx!==i))}
                                                     className="p-3 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <Icon name="X" size={16} />
                                                 </button>
                                             </div>
                                         ))}
-                                        <button
-                                            onClick={() => setTempDirectives([...tempDirectives, ""])}
+                                        <button onClick={() => setTempDirs([...tempDirs,""])}
                                             className="w-full py-4 border-2 border-dashed border-slate-100 rounded-2xl text-[10px] font-black uppercase text-slate-400 hover:text-blue-500 hover:border-blue-100 transition-all">
                                             + Add Rule
                                         </button>
                                     </div>
+
+                                    {parsedRules && (
+                                        <div className="bg-slate-50 rounded-2xl p-5 space-y-3">
+                                            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1">
+                                                <Icon name="Eye" size={11} /> Understood Rules
+                                            </p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {[...parsedRules.noDinnerDays].map(i => (
+                                                    <RuleBadge key={`nd-${i}`} icon="MoonStar" label={`${DAY_NAMES[i]}: No Dinner`} color="bg-orange-100 text-orange-600" />
+                                                ))}
+                                                {[...parsedRules.specialDays].map(i => (
+                                                    <RuleBadge key={`sp-${i}`} icon="Sparkles" label={`${DAY_NAMES[i]}: Special`} color="bg-purple-100 text-purple-600" />
+                                                ))}
+                                                {[...parsedRules.riceWeekdays].map(i => (
+                                                    <RuleBadge key={`ri-${i}`} icon="Wheat" label={`${DAY_NAMES[i]}: Rice`} color="bg-green-100 text-green-600" />
+                                                ))}
+                                                {parsedRules.alwaysDal && <RuleBadge icon="Waves" label="Dal at Lunch" color="bg-yellow-100 text-yellow-700" />}
+                                                {parsedRules.alwaysGravy && <RuleBadge icon="Moon" label="Gravy at Dinner" color="bg-blue-100 text-blue-600" />}
+                                                {parsedRules.noDinnerDays.size===0 && parsedRules.specialDays.size===0 && parsedRules.riceWeekdays.size===0 && (
+                                                    <span className="text-[10px] text-slate-400 italic">No specific rules detected yet</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                 </section>
 
-                                {/* Generate Button */}
-                                <button
-                                    onClick={generateMenu}
-                                    disabled={isGenerating}
-                                    className={`w-full py-8 rounded-[3rem] font-black uppercase tracking-[0.2em] shadow-2xl flex items-center justify-center gap-4 text-sm transition-all ${
-                                        isGenerating
-                                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                            : 'bg-blue-600 text-white hover:scale-[1.01] hover:bg-blue-700 active:scale-95 glow-pulse'
-                                    }`}>
-                                    {isGenerating
-                                        ? <><Icon name="Loader2" size={20} className="animate-spin" /> Intelligence Active...</>
-                                        : "Generate Master Menu"}
+                                <button onClick={generateMenu}
+                                    className="w-full py-8 rounded-[3rem] font-black uppercase tracking-[0.2em] shadow-2xl flex items-center justify-center gap-4 text-sm transition-all bg-blue-600 text-white hover:scale-[1.01] hover:bg-blue-700 active:scale-95 glow-pulse">
+                                    <Icon name="Sparkles" size={20} /> Generate Master Menu
                                 </button>
                             </div>
                         ) : (
                             <div className="space-y-12 animate-fade-in">
                                 <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print">
                                     <div>
-                                        <h2 className="text-5xl font-black tracking-tighter uppercase leading-none">
-                                            {activeMenu.city} Cycle
-                                        </h2>
+                                        <h2 className="text-5xl font-black tracking-tighter uppercase leading-none">{activeMenu.city} Cycle</h2>
                                         <p className="text-[10px] font-black text-slate-400 uppercase mt-3 tracking-widest flex items-center gap-2">
-                                            <Icon name="ShieldCheck" size={12} className="text-green-500" />
-                                            Logic Validated
+                                            <Icon name="ShieldCheck" size={12} className="text-green-500" /> Rules Applied
                                         </p>
                                     </div>
                                     <div className="flex gap-2">
                                         <button onClick={() => window.print()}
-                                            className="bg-white border border-slate-200 p-4 rounded-2xl hover:bg-slate-50 transition-colors shadow-sm">
+                                            className="bg-white border border-slate-200 p-4 rounded-2xl hover:bg-slate-50 shadow-sm">
                                             <Icon name="Printer" size={20} />
                                         </button>
                                         <button onClick={() => setView('plan')}
-                                            className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-black transition-all active:scale-95">
+                                            className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-black active:scale-95">
                                             Adjust Plan
                                         </button>
                                     </div>
@@ -549,104 +479,53 @@ Return ONLY the JSON array, no extra text, no markdown, no code fences.`;
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     {activeMenu.days.map((day) => (
-                                        <div key={day.id} className="bg-white rounded-[3.5rem] border border-slate-100 shadow-2xl shadow-slate-200/50 overflow-hidden flex flex-col transition-all hover:shadow-blue-100/30">
-                                            <div className={`px-10 py-8 flex justify-between items-center ${
-                                                day.isNoDinnerDay
-                                                    ? 'bg-orange-500 text-white'
-                                                    : day.isSpecialLunchDay
-                                                        ? 'bg-purple-600 text-white'
-                                                        : 'bg-slate-900 text-white'
-                                            }`}>
+                                        <div key={day.id} className="bg-white rounded-[3.5rem] border border-slate-100 shadow-2xl shadow-slate-200/50 overflow-hidden flex flex-col">
+                                            <div className={`px-10 py-8 flex justify-between items-center ${day.isNoDinnerDay ? 'bg-orange-500 text-white' : day.isSpecialLunchDay ? 'bg-purple-600 text-white' : 'bg-slate-900 text-white'}`}>
                                                 <div>
                                                     <p className="font-black uppercase tracking-tighter text-2xl">{day.dayName}</p>
                                                     <p className="text-[10px] font-black opacity-70 uppercase tracking-widest mt-1">{day.date}</p>
                                                 </div>
-                                                <Icon
-                                                    name={day.isNoDinnerDay ? "Zap" : day.isSpecialLunchDay ? "Sparkles" : "ChefHat"}
-                                                    size={28}
-                                                />
+                                                <Icon name={day.isNoDinnerDay ? "Zap" : day.isSpecialLunchDay ? "Sparkles" : "ChefHat"} size={28} />
                                             </div>
-
                                             <div className="p-10 space-y-8 flex-1">
-                                                {/* Breakfast */}
-                                                <MealItem
-                                                    icon="Sun"
-                                                    label="Breakfast"
-                                                    item={day.breakfast}
+                                                <MealItem icon="Sun" label="Breakfast" item={day.breakfast}
                                                     yt={getYTLink(day.breakfast?.name)}
-                                                    onEdit={() => setEditingMeal({ dayId: day.id, path: 'breakfast', pool: 'breakfast' })}
-                                                />
-
+                                                    onEdit={() => setEditingMeal({ dayId: day.id, path: 'breakfast', pool: 'breakfast' })} />
                                                 <div className="h-px bg-slate-50" />
-
-                                                {/* Lunch */}
-                                                <div className={`space-y-5 ${
-                                                    day.isSpecialLunchDay
-                                                        ? 'bg-purple-50/50 p-6 rounded-[2.5rem] border border-purple-100 shadow-inner'
-                                                        : ''
-                                                }`}>
-                                                    <h3 className={`text-[10px] font-black uppercase tracking-widest ${
-                                                        day.isSpecialLunchDay ? 'text-purple-600' : 'text-slate-400'
-                                                    }`}>Lunch</h3>
+                                                <div className={`space-y-5 ${day.isSpecialLunchDay ? 'bg-purple-50 p-6 rounded-[2.5rem] border border-purple-100' : ''}`}>
+                                                    <h3 className={`text-[10px] font-black uppercase tracking-widest ${day.isSpecialLunchDay ? 'text-purple-600' : 'text-slate-400'}`}>Lunch</h3>
                                                     <div className="grid grid-cols-1 gap-6 pl-2">
                                                         {day.lunch.isSpecial ? (
-                                                            <MealItem
-                                                                icon="ChefHat"
-                                                                label="Specialty Selection"
-                                                                item={day.lunch.main}
+                                                            <MealItem icon="ChefHat" label="Specialty" item={day.lunch.main}
                                                                 yt={getYTLink(day.lunch.main?.name)}
-                                                                onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.main', pool: 'special_meals' })}
-                                                            />
+                                                                onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.main', pool: 'special_meals' })} />
                                                         ) : (
                                                             <React.Fragment>
-                                                                <MealItem
-                                                                    icon="Leaf"
-                                                                    label="Veg Dish"
-                                                                    item={day.lunch.veg}
+                                                                <MealItem icon="Leaf" label="Veg Dish" item={day.lunch.veg}
                                                                     yt={getYTLink(day.lunch.veg?.name)}
-                                                                    onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.veg', pool: 'dry_veggies' })}
-                                                                />
-                                                                <MealItem
-                                                                    icon="Waves"
-                                                                    label="Dal"
-                                                                    item={day.lunch.dal}
+                                                                    onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.veg', pool: 'dry_veggies' })} />
+                                                                <MealItem icon="Waves" label="Dal" item={day.lunch.dal}
                                                                     yt={getYTLink(day.lunch.dal?.name)}
                                                                     sub={`Curd: ${day.curd?.name}`}
-                                                                />
+                                                                    onEdit={() => setEditingMeal({ dayId: day.id, path: 'lunch.dal', pool: 'dals' })} />
                                                             </React.Fragment>
                                                         )}
                                                     </div>
                                                     <SideItem side={day.lunchSide} />
                                                 </div>
-
                                                 <div className="h-px bg-slate-50" />
-
-                                                {/* Snack */}
-                                                <MealItem
-                                                    icon={day.isNoDinnerDay ? "Star" : "Coffee"}
+                                                <MealItem icon={day.isNoDinnerDay ? "Star" : "Coffee"}
                                                     label={day.isNoDinnerDay ? "Final Meal" : "Snack"}
-                                                    item={day.snack}
-                                                    yt={getYTLink(day.snack?.name)}
-                                                    onEdit={() => setEditingMeal({
-                                                        dayId: day.id,
-                                                        path: 'snack',
-                                                        pool: day.isNoDinnerDay ? 'special_meals' : 'snacks'
-                                                    })}
-                                                />
-
-                                                {/* Dinner */}
+                                                    item={day.snack} yt={getYTLink(day.snack?.name)}
+                                                    onEdit={() => setEditingMeal({ dayId: day.id, path: 'snack', pool: day.isNoDinnerDay ? 'special_meals' : 'snacks' })} />
                                                 {day.dinner && (
                                                     <React.Fragment>
                                                         <div className="h-px bg-slate-50" />
                                                         <div className="space-y-4 pl-2">
                                                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dinner</h3>
-                                                            <MealItem
-                                                                icon="Moon"
-                                                                label="Main Gravy"
-                                                                item={day.dinner.main}
+                                                            <MealItem icon="Moon" label="Main Gravy" item={day.dinner.main}
                                                                 yt={getYTLink(day.dinner.main?.name)}
-                                                                onEdit={() => setEditingMeal({ dayId: day.id, path: 'dinner.main', pool: 'gravy_veggies' })}
-                                                            />
+                                                                onEdit={() => setEditingMeal({ dayId: day.id, path: 'dinner.main', pool: 'gravy_veggies' })} />
                                                             <SideItem side="Roti" />
                                                         </div>
                                                     </React.Fragment>
@@ -660,21 +539,17 @@ Return ONLY the JSON array, no extra text, no markdown, no code fences.`;
                         </div>
                     </main>
 
-                    {/* ── Swap Modal ── */}
                     {editingMeal && (
-                        <div
-                            className="fixed inset-0 z-[1000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6"
-                            onClick={() => setEditingMeal(null)}>
-                            <div
-                                className="bg-white w-full max-w-lg rounded-[3rem] p-10 max-h-[80vh] flex flex-col shadow-2xl animate-fade-in"
-                                onClick={e => e.stopPropagation()}>
+                        <div className="fixed inset-0 z-[1000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6"
+                             onClick={() => setEditingMeal(null)}>
+                            <div className="bg-white w-full max-w-lg rounded-[3rem] p-10 max-h-[80vh] flex flex-col shadow-2xl animate-fade-in"
+                                 onClick={e => e.stopPropagation()}>
                                 <h3 className="text-xl font-black mb-6 uppercase tracking-tight flex items-center gap-2">
-                                    <Icon name="RefreshCw" size={20} /> Swap Selection
+                                    <Icon name="RefreshCw" size={20} /> Swap Dish
                                 </h3>
                                 <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
-                                    {(repo[editingMeal.pool] || []).map(item => (
-                                        <button
-                                            key={item.name}
+                                    {(repo[editingMeal.pool]||[]).map(item => (
+                                        <button key={item.name}
                                             onClick={() => updateMeal(editingMeal.dayId, editingMeal.path, item)}
                                             className="w-full text-left p-5 rounded-2xl bg-slate-50 hover:bg-blue-600 hover:text-white transition-all flex justify-between items-center group">
                                             <div>
@@ -685,8 +560,7 @@ Return ONLY the JSON array, no extra text, no markdown, no code fences.`;
                                         </button>
                                     ))}
                                 </div>
-                                <button
-                                    onClick={() => setEditingMeal(null)}
+                                <button onClick={() => setEditingMeal(null)}
                                     className="mt-8 py-5 bg-slate-100 text-slate-400 font-black rounded-2xl uppercase text-[10px]">
                                     Close
                                 </button>
@@ -697,8 +571,7 @@ Return ONLY the JSON array, no extra text, no markdown, no code fences.`;
             );
         };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     </script>
 </body>
 </html>
