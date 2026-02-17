@@ -1,838 +1,513 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The360 Kitchen | v4.0</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        .scrollbar::-webkit-scrollbar { width: 4px; }
-        .scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
-        .scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        @media print { .no-print { display: none !important; } }
-        .fadein { animation: fi 0.3s ease-out; }
-        @keyframes fi { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        .glow { animation: gw 2s infinite; }
-        @keyframes gw { 0%,100%{box-shadow:0 0 4px rgba(37,99,235,.1)} 50%{box-shadow:0 0 20px rgba(37,99,235,.3)} }
-        .tab-on { border-bottom: 3px solid #2563eb; color: #1d4ed8; }
-        select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
-    </style>
-</head>
-<body class="bg-slate-50 text-slate-900">
-<div id="root"></div>
-<script type="text/babel">
-const { useState, useEffect, useRef } = React;
-
-// ─── Seasons ───────────────────────────────────────────────────────────────
-const getSeason = () => { const m=new Date().getMonth()+1; if(m>=12||m<=2)return'winter'; if(m>=3&&m<=5)return'summer'; if(m>=6&&m<=9)return'monsoon'; return'autumn'; };
-const SEASON_LABEL = {winter:'सर्दी · Winter',summer:'गर्मी · Summer',monsoon:'बारिश · Monsoon',autumn:'शरद · Autumn'};
-const SEASON_ICON  = {winter:'Snowflake',summer:'Sun',monsoon:'CloudRain',autumn:'Leaf'};
-const FLOUR_BY_SEASON = {winter:[{en:'Bajra',hi:'बाजरा'},{en:'Makki',hi:'मक्की'},{en:'Jowar',hi:'ज्वार'}],summer:[{en:'Wheat',hi:'गेहूं'},{en:'Jowar',hi:'ज्वार'},{en:'Barley',hi:'जौ'}],monsoon:[{en:'Wheat',hi:'गेहूं'},{en:'Jowar',hi:'ज्वार'},{en:'Ragi',hi:'रागी'}],autumn:[{en:'Wheat',hi:'गेहूं'},{en:'Bajra',hi:'बाजरा'},{en:'Ragi',hi:'रागी'}]};
-
-const DAY_NAMES  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const DAY_SHORT  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-const WEEKDAYS   = [1,2,3,4,5];
-const WEEKENDS   = [0,6];
-const ALLDAYS    = [0,1,2,3,4,5,6];
-
-// ─── Rule type definitions ─────────────────────────────────────────────────
-// Each rule is a plain JS object — no text parsing needed at all.
-const RULE_TYPES = [
-    { id:'no_dinner',      label:'Skip Dinner',          icon:'MoonStar',   color:'bg-orange-50 border-orange-200 text-orange-700',  desc:'Mark specific days as snack-only — no dinner cooked' },
-    { id:'special_lunch',  label:'Special Lunch Day',    icon:'Sparkles',   color:'bg-purple-50 border-purple-200 text-purple-700',  desc:'Use special/festive dishes for lunch on chosen days' },
-    { id:'lunch_side',     label:'Lunch Side Dish',      icon:'Wheat',      color:'bg-green-50 border-green-200 text-green-700',     desc:'Set which days get Rice vs Roti at lunch' },
-    { id:'dinner_side',    label:'Dinner Side Dish',     icon:'Moon',       color:'bg-blue-50 border-blue-200 text-blue-700',        desc:'Fixed Roti, Rice, or seasonal flour rotation for dinner' },
-    { id:'lunch_dal',      label:'Dal Preference',       icon:'Waves',      color:'bg-yellow-50 border-yellow-200 text-yellow-700',  desc:'Choose which dal(s) to use at lunch — picks alternately if two chosen' },
-    { id:'extra_breakfast',label:'Add Breakfast Item',   icon:'Plus',       color:'bg-pink-50 border-pink-200 text-pink-700',        desc:'Add a fixed extra item to breakfast on specific days (e.g. egg whites)' },
-    { id:'always_gravy',   label:'Always Gravy at Dinner',icon:'ChefHat',   color:'bg-slate-50 border-slate-200 text-slate-700',     desc:'Ensure every dinner has a gravy/curry dish' },
-    { id:'no_lunch_dal',   label:'Skip Dal at Lunch',    icon:'X',          color:'bg-red-50 border-red-200 text-red-600',           desc:'No dal served at lunch on selected days' },
-];
-
-// ─── Humanise a rule object → readable summary ────────────────────────────
-const humanise = (rule) => {
-    const dayLabel = (days) => {
-        if (!days||days.length===7) return 'Every day';
-        if (days.length===5&&WEEKDAYS.every(d=>days.includes(d))) return 'Weekdays (Mon–Fri)';
-        if (days.length===2&&WEEKENDS.every(d=>days.includes(d))) return 'Weekends';
-        return days.map(d=>DAY_SHORT[d]).join(', ');
-    };
-    switch(rule.type) {
-        case 'no_dinner':      return `🚫 No Dinner on ${dayLabel(rule.days)}`;
-        case 'special_lunch':  return `✨ Special Lunch on ${dayLabel(rule.days)}`;
-        case 'lunch_side':     return `🍚 Lunch side: ${rule.side==='seasonal'?'Seasonal rotation':rule.side} on ${dayLabel(rule.days)}`;
-        case 'dinner_side':    return rule.dinnerSideMode==='seasonal' ? `🌾 Dinner Roti: Seasonal flour rotation (Ayurvedic)` : `🫓 Dinner side: ${rule.dinnerSide||'Roti'} every night`;
-        case 'lunch_dal':      return rule.dals?.length===2 ? `🫘 Lunch Dal: Alternate ${rule.dals[0]} & ${rule.dals[1]} on ${dayLabel(rule.days)}` : `🫘 Lunch Dal: ${rule.dals?.[0]||'Any'} on ${dayLabel(rule.days)}`;
-        case 'extra_breakfast':return `🍳 Extra Breakfast item on ${dayLabel(rule.days)}: "${rule.extraItem}"`;
-        case 'always_gravy':   return `🍲 Always a Gravy dish at Dinner`;
-        case 'no_lunch_dal':   return `🚫 No Dal at Lunch on ${dayLabel(rule.days)}`;
-        default: return rule.type;
-    }
-};
-
-// ─── Apply rules → generate day plans ─────────────────────────────────────
-const buildPlan = (startDate, cycle, rules) => {
-    const season = getSeason();
-    const flours = FLOUR_BY_SEASON[season];
-    // Pre-process
-    const noDinnerDays  = new Set();
-    const specialDays   = new Set();
-    const riceOnDays    = new Set();
-    let   alwaysGravy   = false;
-    let   flourRotation = false;
-    let   fixedDinnerSide = 'Roti';
-    const dalRules = []; // [{days, dals:[]}]
-    const noDalDays = new Set();
-    const extraBreakfast = []; // [{days, item}]
-
-    rules.forEach(r => {
-        if (r.type==='no_dinner')      r.days.forEach(d=>noDinnerDays.add(d));
-        if (r.type==='special_lunch')  r.days.forEach(d=>specialDays.add(d));
-        if (r.type==='lunch_side'&&r.side==='Rice') r.days.forEach(d=>riceOnDays.add(d));
-        if (r.type==='always_gravy')   alwaysGravy=true;
-        if (r.type==='dinner_side') {
-            if (r.dinnerSideMode==='seasonal') flourRotation=true;
-            else fixedDinnerSide=r.dinnerSide||'Roti';
-        }
-        if (r.type==='lunch_dal')      dalRules.push({days:r.days||ALLDAYS, dals:r.dals||[]});
-        if (r.type==='no_lunch_dal')   r.days.forEach(d=>noDalDays.add(d));
-        if (r.type==='extra_breakfast') extraBreakfast.push({days:r.days||ALLDAYS, item:r.extraItem||''});
-    });
-    // Default rice days if no explicit rule
-    if (riceOnDays.size===0) [1,3,5].forEach(d=>riceOnDays.add(d));
-
-    const start = new Date(startDate);
-    return Array.from({length:cycle},(_,i)=>{
-        const d = new Date(start); d.setDate(start.getDate()+i);
-        const di = d.getDay();
-        const isWeekend = di===0||di===6;
-        const dinnerSide = flourRotation ? flours[i%flours.length].en : fixedDinnerSide;
-        const dinnerSideHi = flourRotation ? flours[i%flours.length].hi+' रोटी' : null;
-        const dalRule = dalRules.find(dr=>dr.days.includes(di));
-        const extraBF = extraBreakfast.filter(e=>e.days.includes(di)).map(e=>e.item);
-        return {
-            day:DAY_NAMES[di], dayIdx:di,
-            noDinner:  noDinnerDays.has(di),
-            isSpecial: specialDays.has(di),
-            side: riceOnDays.has(di)||isWeekend ? 'Rice':'Roti',
-            alwaysGravy,
-            dinnerSide, dinnerSideHi,
-            hasDal: !noDalDays.has(di),
-            dalRule: dalRule||null,
-            extraBreakfast: extraBF,
-            flourIdx: i%flours.length,
-        };
-    });
-};
-
-// ─── Master dish library ───────────────────────────────────────────────────
-const VEG_MASTER = {
-    breakfast:[
-        {name:'Kanda Poha',hi:'कांदा पोहा',seasons:['all'],cities:['Mumbai','Pune','Nashik','Indore']},
-        {name:'Aloo Paratha',hi:'आलू पराठा',seasons:['all'],cities:['all']},
-        {name:'Idli Sambar',hi:'इडली सांभर',seasons:['all'],cities:['Chennai','Bangalore','Hyderabad','Mumbai']},
-        {name:'Sabudana Khichdi',hi:'साबूदाना खिचड़ी',seasons:['all'],cities:['Mumbai','Pune','Indore']},
-        {name:'Besan Chilla',hi:'बेसन चीला',seasons:['all'],cities:['all']},
-        {name:'Upma',hi:'उपमा',seasons:['all'],cities:['all']},
-        {name:'Methi Thepla',hi:'मेथी थेपला',seasons:['winter'],cities:['Ahmedabad','Surat','Mumbai','Pune']},
-        {name:'Dosa',hi:'डोसा',seasons:['all'],cities:['Chennai','Bangalore','Hyderabad','Mumbai']},
-        {name:'Moong Dal Chilla',hi:'मूंग दाल चीला',seasons:['all'],cities:['all']},
-        {name:'Uttapam',hi:'उत्तपम',seasons:['all'],cities:['all']},
-        {name:'Poha',hi:'पोहा',seasons:['all'],cities:['all']},
-        {name:'Vermicelli Upma',hi:'सेवई उपमा',seasons:['all'],cities:['all']},
-        {name:'Dhokla',hi:'ढोकला',seasons:['all'],cities:['Ahmedabad','Surat','Mumbai']},
-        {name:'Missi Roti',hi:'मिस्सी रोटी',seasons:['winter'],cities:['Delhi','Jaipur','Lucknow']},
-    ],
-    dry_veggies:[
-        {name:'Aloo Gobhi',hi:'आलू गोभी',seasons:['winter','autumn'],cities:['all']},
-        {name:'Bhindi Masala',hi:'भिंडी मसाला',seasons:['summer','monsoon'],cities:['all']},
-        {name:'Jeera Aloo',hi:'जीरा आलू',seasons:['all'],cities:['all']},
-        {name:'Gajar Matar',hi:'गाजर मटर',seasons:['winter'],cities:['all']},
-        {name:'Cabbage Sabzi',hi:'पत्ता गोभी',seasons:['winter','autumn'],cities:['all']},
-        {name:'Baingan Bharta',hi:'बैंगन भर्ता',seasons:['monsoon','autumn'],cities:['all']},
-        {name:'Capsicum Fry',hi:'शिमला मिर्च',seasons:['all'],cities:['all']},
-        {name:'Karela Masala',hi:'करेला',seasons:['summer','monsoon'],cities:['all']},
-        {name:'Mushroom Masala',hi:'मशरूम मसाला',seasons:['monsoon','winter'],cities:['all']},
-        {name:'French Beans',hi:'फ्रेंच बींस',seasons:['winter'],cities:['all']},
-        {name:'Arbi Fry',hi:'अरबी',seasons:['monsoon','autumn'],cities:['all']},
-        {name:'Torai Sabzi',hi:'तोरई',seasons:['monsoon','summer'],cities:['all']},
-        {name:'Lauki Sabzi',hi:'लौकी',seasons:['summer','monsoon'],cities:['all']},
-        {name:'Baby Corn',hi:'बेबी कॉर्न',seasons:['all'],cities:['all']},
-    ],
-    gravy_veggies:[
-        {name:'Matar Paneer',hi:'मटर पनीर',seasons:['winter'],cities:['all']},
-        {name:'Palak Paneer',hi:'पालक पनीर',seasons:['winter','autumn'],cities:['all']},
-        {name:'Shahi Paneer',hi:'शाही पनीर',seasons:['all'],cities:['all']},
-        {name:'Kadhi Pakora',hi:'कढ़ी पकोड़ा',seasons:['all'],cities:['all']},
-        {name:'Lauki Kofta',hi:'लौकी कोफ्ता',seasons:['summer','monsoon'],cities:['all']},
-        {name:'Chana Masala',hi:'चना मसाला',seasons:['all'],cities:['all']},
-        {name:'Dal Makhani',hi:'दाल मखनी',seasons:['winter','autumn'],cities:['all']},
-        {name:'Dum Aloo',hi:'दम आलू',seasons:['all'],cities:['all']},
-        {name:'Mixed Veg Curry',hi:'मिक्स वेज',seasons:['all'],cities:['all']},
-        {name:'Paneer Butter Masala',hi:'पनीर बटर मसाला',seasons:['all'],cities:['all']},
-        {name:'Aloo Matar',hi:'आलू मटर',seasons:['winter'],cities:['all']},
-        {name:'Mushroom Gravy',hi:'मशरूम ग्रेवी',seasons:['monsoon','winter'],cities:['all']},
-        {name:'Paneer Bhurji',hi:'पनीर भुर्जी',seasons:['all'],cities:['all']},
-        {name:'Veg Handi',hi:'वेज हांडी',seasons:['all'],cities:['all']},
-    ],
-    dals:[
-        {name:'Arhar Dal',hi:'अरहर दाल',seasons:['all'],cities:['all']},
-        {name:'Masoor Dal',hi:'मसूर दाल',seasons:['all'],cities:['all']},
-        {name:'Moong Dal',hi:'मूंग दाल',seasons:['summer','monsoon'],cities:['all']},
-        {name:'Chana Dal',hi:'चना दाल',seasons:['all'],cities:['all']},
-        {name:'Urad Dal',hi:'उड़द दाल',seasons:['winter','autumn'],cities:['all']},
-        {name:'Dual Dal (Mix)',hi:'जुगलबंदी दाल',seasons:['all'],cities:['all']},
-        {name:'Dal Tadka',hi:'दाल तड़का',seasons:['all'],cities:['all']},
-        {name:'Panchmel Dal',hi:'पंचमेल दाल',seasons:['all'],cities:['all']},
-    ],
-    snacks:[
-        {name:'Sprouts Chaat',hi:'स्प्राउट्स चाट',seasons:['all'],cities:['all']},
-        {name:'Roasted Makhana',hi:'मखाना',seasons:['all'],cities:['all']},
-        {name:'Fruit Bowl',hi:'फ्रूट बाउल',seasons:['all'],cities:['all']},
-        {name:'Roasted Chana',hi:'भुना चना',seasons:['all'],cities:['all']},
-        {name:'Peanut Chaat',hi:'मूंगफली चाट',seasons:['winter','autumn'],cities:['all']},
-        {name:'Masala Papad',hi:'मसाला पापड़',seasons:['all'],cities:['all']},
-        {name:'Murmura Chaat',hi:'मुरमुरा चाट',seasons:['all'],cities:['all']},
-        {name:'Dhokla',hi:'ढोकला',seasons:['all'],cities:['all']},
-    ],
-    special_meals:[
-        {name:'Veg Biryani',hi:'वेज बिरयानी',seasons:['all'],cities:['all']},
-        {name:'Rajma Rice',hi:'राजमा चावल',seasons:['winter'],cities:['all']},
-        {name:'Veg Pulao',hi:'वेज पुलाव',seasons:['all'],cities:['all']},
-        {name:'Khichdi',hi:'खिचड़ी',seasons:['monsoon','winter'],cities:['all']},
-        {name:'Thali Meal',hi:'थाली मील',seasons:['all'],cities:['all']},
-        {name:'Pav Bhaji',hi:'पाव भाजी',seasons:['all'],cities:['Mumbai','Pune','Nashik']},
-        {name:'Chole Bhature',hi:'छोले भटूरे',seasons:['all'],cities:['Delhi','Amritsar','Chandigarh']},
-        {name:'Misal Pav',hi:'मिसळ पाव',seasons:['all'],cities:['Mumbai','Pune','Nashik']},
-        {name:'Dal Baati',hi:'दाल बाटी',seasons:['all'],cities:['Jaipur','Jodhpur','Udaipur']},
-    ],
-    curd:[
-        {name:'Plain Curd',hi:'दही',seasons:['all'],cities:['all']},
-        {name:'Boondi Raita',hi:'बूंदी रायता',seasons:['all'],cities:['all']},
-        {name:'Cucumber Raita',hi:'खीरे का रायता',seasons:['summer'],cities:['all']},
-        {name:'Pudina Raita',hi:'पुदीना रायता',seasons:['summer','monsoon'],cities:['all']},
-        {name:'Onion Raita',hi:'प्याज रायता',seasons:['all'],cities:['all']},
-    ],
-};
-const CAT_LABEL = {breakfast:{en:'Breakfast',hi:'नाश्ता',icon:'Sun'},dry_veggies:{en:'Dry Veggies',hi:'सूखी सब्जी',icon:'Leaf'},gravy_veggies:{en:'Gravy Dishes',hi:'ग्रेवी सब्जी',icon:'Waves'},dals:{en:'Dals',hi:'दालें',icon:'Coffee'},snacks:{en:'Snacks',hi:'स्नैक्स',icon:'Apple'},special_meals:{en:'Special Meals',hi:'ख़ास खाना',icon:'Sparkles'},curd:{en:'Curd & Raita',hi:'दही',icon:'CircleDot'}};
-const KNOWN_CITIES = ['Mumbai','Delhi','Bangalore','Chennai','Hyderabad','Kolkata','Pune','Ahmedabad','Jaipur','Lucknow','Indore','Nashik','Surat','Bhopal','Allahabad','Varanasi','Chandigarh','Amritsar','Kochi','Jodhpur','Udaipur'];
-
-const filterByCitySeason = (items,city,season) => items.filter(v=>(v.cities.includes('all')||v.cities.some(c=>city.toLowerCase().includes(c.toLowerCase())))&&(v.seasons.includes('all')||v.seasons.includes(season)));
-const buildDefaultActive = (city,season) => { const a={}; Object.keys(VEG_MASTER).forEach(cat=>{ a[cat]=new Set(filterByCitySeason(VEG_MASTER[cat],city,season).map(v=>v.name)); }); return a; };
-
-const getYT = n => `https://www.youtube.com/results?search_query=${(n||'').replace(/\s+/g,'+')}+recipe+indian`;
-const shuffle = a => [...a].sort(()=>Math.random()-0.5);
-const makeRotator = a => { const p=shuffle(a); let i=0; return ()=>p[i++%p.length]; };
-const uid = () => Math.random().toString(36).slice(2,9);
-
-// ─── Icon ──────────────────────────────────────────────────────────────────
-const Icon = ({name,size=18,cls=''}) => {
-    const r=useRef(null);
-    useEffect(()=>{ if(!window.lucide||!r.current)return; const k=name.replace(/([a-z])([A-Z])/g,'$1-$2').toLowerCase(); r.current.innerHTML=`<i data-lucide="${k}"></i>`; window.lucide.createIcons({root:r.current,attrs:{width:size,height:size,'stroke-width':2.2,class:cls},nameAttr:'data-lucide'}); },[name,size,cls]);
-    return <span ref={r} className="inline-flex items-center justify-center flex-shrink-0"/>;
-};
-
-// ─── Day Picker ────────────────────────────────────────────────────────────
-const DayPicker = ({selected, onChange}) => {
-    const toggle = (d) => { const s=new Set(selected); s.has(d)?s.delete(d):s.add(d); onChange([...s].sort()); };
-    const preset = (days) => onChange([...days].sort());
-    return (
-        <div className="space-y-2">
-            <div className="flex gap-1.5 flex-wrap">
-                <button onClick={()=>preset(WEEKDAYS)} className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all ${JSON.stringify([...selected].sort())===JSON.stringify(WEEKDAYS)?'bg-slate-800 text-white border-slate-800':'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-400'}`}>Weekdays</button>
-                <button onClick={()=>preset(WEEKENDS)} className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all ${JSON.stringify([...selected].sort())===JSON.stringify(WEEKENDS)?'bg-slate-800 text-white border-slate-800':'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-400'}`}>Weekends</button>
-                <button onClick={()=>preset(ALLDAYS)} className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all ${selected.length===7?'bg-slate-800 text-white border-slate-800':'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-400'}`}>Every Day</button>
-            </div>
-            <div className="flex gap-1.5">
-                {DAY_SHORT.map((d,i)=>(
-                    <button key={i} onClick={()=>toggle(i)} className={`w-9 h-9 rounded-xl text-[10px] font-black transition-all border-2 ${selected.includes(i)?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-500 border-slate-200 hover:border-blue-300'}`}>{d}</button>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-// ─── Rule Form ─────────────────────────────────────────────────────────────
-const RuleForm = ({onSave, onCancel, editingRule}) => {
-    const [step, setStep] = useState(editingRule?'form':'pick');
-    const [type, setType] = useState(editingRule?.type||null);
-    const [days, setDays] = useState(editingRule?.days||[1,2,3,4,5]);
-    const [side, setSide] = useState(editingRule?.side||'Rice');
-    const [dinnerSideMode, setDinnerSideMode] = useState(editingRule?.dinnerSideMode||'seasonal');
-    const [dinnerSide, setDinnerSide] = useState(editingRule?.dinnerSide||'Roti');
-    const [dals, setDals]   = useState(editingRule?.dals||['Arhar Dal']);
-    const [dal1, setDal1]   = useState(editingRule?.dals?.[0]||'Arhar Dal');
-    const [dal2, setDal2]   = useState(editingRule?.dals?.[1]||'');
-    const [extraItem, setExtraItem] = useState(editingRule?.extraItem||'');
-
-    const pickType = (t) => { setType(t); setStep('form'); };
-
-    const save = () => {
-        const base = {id: editingRule?.id||uid(), type};
-        if (type==='no_dinner')       onSave({...base, days});
-        else if (type==='special_lunch')   onSave({...base, days});
-        else if (type==='lunch_side')      onSave({...base, days, side});
-        else if (type==='dinner_side')     onSave({...base, dinnerSideMode, dinnerSide});
-        else if (type==='lunch_dal')       onSave({...base, days, dals: dal2 ? [dal1,dal2]:[dal1]});
-        else if (type==='extra_breakfast') onSave({...base, days, extraItem});
-        else if (type==='always_gravy')    onSave({...base});
-        else if (type==='no_lunch_dal')    onSave({...base, days});
-    };
-
-    const rt = RULE_TYPES.find(r=>r.id===type);
-    const dalNames = VEG_MASTER.dals.map(d=>d.name);
-
-    return (
-        <div className="fadein">
-        {step==='pick' && (
-            <div className="space-y-3">
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">What kind of rule do you want to add?</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {RULE_TYPES.map(rt=>(
-                        <button key={rt.id} onClick={()=>pickType(rt.id)}
-                            className={`flex items-start gap-3 p-4 rounded-2xl border-2 text-left hover:scale-[1.01] transition-all ${rt.color}`}>
-                            <div className="mt-0.5"><Icon name={rt.icon} size={16}/></div>
-                            <div>
-                                <p className="font-black text-sm">{rt.label}</p>
-                                <p className="text-[10px] opacity-70 mt-0.5 leading-relaxed">{rt.desc}</p>
-                            </div>
-                        </button>
-                    ))}
-                </div>
-                <button onClick={onCancel} className="w-full py-3 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-red-400 transition-colors mt-2">Cancel</button>
-            </div>
-        )}
-
-        {step==='form' && rt && (
-            <div className="space-y-5">
-                <div className="flex items-center gap-3">
-                    <button onClick={()=>setStep('pick')} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors"><Icon name="ArrowLeft" size={14}/></button>
-                    <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl border-2 ${rt.color}`}>
-                        <Icon name={rt.icon} size={14}/><span className="font-black text-sm">{rt.label}</span>
-                    </div>
-                </div>
-
-                {/* Days picker — shown for most rules */}
-                {['no_dinner','special_lunch','lunch_side','lunch_dal','extra_breakfast','no_lunch_dal'].includes(type) && (
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Which days?</label>
-                        <DayPicker selected={days} onChange={setDays}/>
-                    </div>
-                )}
-
-                {/* Lunch side */}
-                {type==='lunch_side' && (
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Side dish on these days</label>
-                        <div className="flex gap-2">
-                            {['Rice','Roti','Paratha'].map(s=>(
-                                <button key={s} onClick={()=>setSide(s)}
-                                    className={`flex-1 py-3 rounded-2xl font-black text-sm border-2 transition-all ${side===s?'bg-green-600 text-white border-green-600':'bg-white text-slate-600 border-slate-200 hover:border-green-300'}`}>{s}</button>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Dinner side */}
-                {type==='dinner_side' && (
-                    <div className="space-y-4">
-                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Dinner side mode</label>
-                        <div className="grid grid-cols-1 gap-2">
-                            <button onClick={()=>setDinnerSideMode('seasonal')}
-                                className={`flex items-start gap-3 p-4 rounded-2xl border-2 transition-all text-left ${dinnerSideMode==='seasonal'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 border-slate-200 hover:border-blue-300'}`}>
-                                <Icon name="Leaf" size={16}/><div><p className="font-black">Seasonal Flour Rotation</p><p className={`text-[10px] mt-0.5 ${dinnerSideMode==='seasonal'?'text-blue-200':'text-slate-400'}`}>Ayurvedic — Bajra/Makki in winter, Jowar/Wheat in summer, etc. Changes daily.</p></div>
-                            </button>
-                            <button onClick={()=>setDinnerSideMode('fixed')}
-                                className={`flex items-start gap-3 p-4 rounded-2xl border-2 transition-all text-left ${dinnerSideMode==='fixed'?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 border-slate-200 hover:border-blue-300'}`}>
-                                <Icon name="CircleDot" size={16}/><div><p className="font-black">Fixed Side Dish</p><p className={`text-[10px] mt-0.5 ${dinnerSideMode==='fixed'?'text-blue-200':'text-slate-400'}`}>Same side dish every dinner night.</p></div>
-                            </button>
-                        </div>
-                        {dinnerSideMode==='fixed' && (
-                            <div className="flex gap-2 mt-2">
-                                {['Roti','Rice','Paratha'].map(s=>(
-                                    <button key={s} onClick={()=>setDinnerSide(s)}
-                                        className={`flex-1 py-3 rounded-2xl font-black text-sm border-2 transition-all ${dinnerSide===s?'bg-blue-600 text-white border-blue-600':'bg-white text-slate-600 border-slate-200 hover:border-blue-300'}`}>{s}</button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Dal picker */}
-                {type==='lunch_dal' && (
-                    <div className="space-y-3">
-                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Primary Dal</label>
-                        <select value={dal1} onChange={e=>setDal1(e.target.value)}
-                            className="w-full bg-slate-50 p-3.5 rounded-2xl font-bold text-sm outline-none border-2 border-transparent focus:border-blue-400 transition-all">
-                            {dalNames.map(d=><option key={d}>{d}</option>)}
-                        </select>
-                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Alternate Dal <span className="text-slate-300 normal-case font-normal">(optional — will rotate daily)</span></label>
-                        <select value={dal2} onChange={e=>setDal2(e.target.value)}
-                            className="w-full bg-slate-50 p-3.5 rounded-2xl font-bold text-sm outline-none border-2 border-transparent focus:border-blue-400 transition-all">
-                            <option value="">None — use primary only</option>
-                            {dalNames.filter(d=>d!==dal1).map(d=><option key={d}>{d}</option>)}
-                        </select>
-                    </div>
-                )}
-
-                {/* Extra breakfast item */}
-                {type==='extra_breakfast' && (
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Extra item to add</label>
-                        <input value={extraItem} onChange={e=>setExtraItem(e.target.value)}
-                            placeholder="e.g.  5 Egg White Omelette  /  Protein Shake  /  Banana"
-                            className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm outline-none border-2 border-transparent focus:border-blue-400 transition-all placeholder-slate-300"/>
-                    </div>
-                )}
-
-                {/* no_dinner, special_lunch, always_gravy, no_lunch_dal — just days, no extra fields */}
-
-                <div className="flex gap-2 pt-2">
-                    <button onClick={onCancel} className="flex-1 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all">Cancel</button>
-                    <button onClick={save}
-                        disabled={type==='extra_breakfast'&&!extraItem.trim()}
-                        className="flex-1 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
-                        {editingRule?'Update Rule':'Add Rule'}
-                    </button>
-                </div>
-            </div>
-        )}
-        </div>
-    );
-};
-
-// ─── MealItem ──────────────────────────────────────────────────────────────
-const MealItem = ({icon,label,item,yt,sub,onEdit}) => {
-    if(!item) return null;
-    return (
-        <div className="flex items-start justify-between gap-2 group">
-            <div className="flex items-start gap-3 min-w-0">
-                <div className="mt-0.5 text-slate-300"><Icon name={icon} size={14}/></div>
-                <div className="min-w-0">
-                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-0.5">{label}</p>
-                    <p className="font-black text-slate-800 leading-tight">{item.name}</p>
-                    {item.hi&&<p className="text-[11px] text-slate-400 font-semibold mt-0.5">{item.hi}</p>}
-                    {sub&&<p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
-                </div>
-            </div>
-            <div className="flex gap-1.5 flex-shrink-0 mt-0.5">
-                {yt&&<a href={yt} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-red-50 border border-red-100 text-red-500 hover:bg-red-500 hover:text-white transition-all text-[9px] font-black uppercase"><Icon name="Play" size={10}/><span className="hidden sm:inline">Video</span></a>}
-                {onEdit&&<button onClick={onEdit} className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white transition-all text-[9px] font-black uppercase"><Icon name="RefreshCw" size={10}/><span className="hidden sm:inline">Swap</span></button>}
-            </div>
-        </div>
-    );
-};
-
-const SideItem = ({side,sideHi}) => {
-    if(!side) return null;
-    const SIDES = {Rice:{en:'Rice',hi:'चावल'},Roti:{en:'Roti',hi:'रोटी'},Paratha:{en:'Paratha',hi:'पराठा'},Bajra:{en:'Bajra Roti',hi:'बाजरा रोटी'},Makki:{en:'Makki Roti',hi:'मक्की रोटी'},Jowar:{en:'Jowar Roti',hi:'ज्वार रोटी'},Wheat:{en:'Wheat Roti',hi:'गेहूं रोटी'},Ragi:{en:'Ragi Roti',hi:'रागी रोटी'},Barley:{en:'Barley Roti',hi:'जौ रोटी'}};
-    const s=SIDES[side]||{en:side,hi:sideHi||side};
-    return (
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-50">
-            <div className="text-slate-300"><Icon name="CircleDot" size={12}/></div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                Side: <span className="text-blue-600">{s.en}</span>
-                <span className="text-slate-300 mx-1">·</span>
-                <span className="text-blue-400 font-semibold normal-case text-[11px]">{sideHi||s.hi}</span>
-            </span>
-        </div>
-    );
-};
-
-// ─── Default rules ─────────────────────────────────────────────────────────
-const DEFAULT_RULES = [
-    {id:'r1', type:'no_dinner',      days:[5,6]},
-    {id:'r2', type:'special_lunch',  days:[6,0]},
-    {id:'r3', type:'lunch_side',     days:[1,3,5], side:'Rice'},
-    {id:'r4', type:'dinner_side',    dinnerSideMode:'seasonal'},
-    {id:'r5', type:'always_gravy'},
-    {id:'r6', type:'lunch_dal',      days:[1,2,3,4,5], dals:['Arhar Dal','Masoor Dal']},
-];
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  MAIN APP
-// ═══════════════════════════════════════════════════════════════════════════
-const App = () => {
-    const season = getSeason();
-    const [view,setView]               = useState('plan');
-    const [planTab,setPlanTab]         = useState('rules');
-    const [city,setCity]               = useState('Mumbai');
-    const [cityInput,setCityInput]     = useState('Mumbai');
-    const [showCityDD,setShowCityDD]   = useState(false);
-    const [startDate,setStartDate]     = useState(new Date().toISOString().split('T')[0]);
-    const [cycle,setCycle]             = useState(7);
-    const [isSyncing,setIsSyncing]     = useState(true);
-    const [error,setError]             = useState(null);
-    const [rules,setRules]             = useState(()=>{ try{const s=localStorage.getItem('t360_rules_v4');return s?JSON.parse(s):DEFAULT_RULES;}catch{return DEFAULT_RULES;} });
-    const [showRuleForm,setShowRuleForm] = useState(false);
-    const [editingRule,setEditingRule]  = useState(null);
-    const [activeVeg,setActiveVeg]     = useState(()=>buildDefaultActive('Mumbai',season));
-    const [customDishes,setCustomDishes]= useState(()=>{ try{const s=localStorage.getItem('t360_custom');return s?JSON.parse(s):{}}catch{return {};} });
-    const [newDishInputs,setNewDishInputs]= useState({});
-    const [history,setHistory]         = useState([]);
-    const [activeMenu,setActiveMenu]   = useState(null);
-    const [editingMeal,setEditingMeal] = useState(null);
-
-    useEffect(()=>{ try{ const h=localStorage.getItem('t360_history');if(h)setHistory(JSON.parse(h)); const v=localStorage.getItem('t360_veg');if(v){const p=JSON.parse(v);const r={};Object.keys(p).forEach(k=>r[k]=new Set(p[k]));setActiveVeg(r);} const cd=localStorage.getItem('t360_custom');if(cd)setCustomDishes(JSON.parse(cd)); }catch(e){} setIsSyncing(false); },[]);
-    useEffect(()=>{ if(isSyncing)return; localStorage.setItem('t360_history',JSON.stringify(history)); const vs={};Object.keys(activeVeg).forEach(k=>vs[k]=[...activeVeg[k]]);localStorage.setItem('t360_veg',JSON.stringify(vs)); localStorage.setItem('t360_custom',JSON.stringify(customDishes)); localStorage.setItem('t360_rules_v4',JSON.stringify(rules)); },[history,activeVeg,customDishes,rules,isSyncing]);
-
-    const handleCityChange = (c) => { setCity(c);setCityInput(c);setShowCityDD(false);setActiveVeg(buildDefaultActive(c,season)); };
-    const citySuggs = KNOWN_CITIES.filter(c=>c.toLowerCase().startsWith(cityInput.toLowerCase())&&c.toLowerCase()!==cityInput.toLowerCase());
-
-    const getAllDishes = (cat) => { const custom=(customDishes[cat]||[]).map(n=>({name:n,hi:'',seasons:['all'],cities:['all'],custom:true})); return [...VEG_MASTER[cat],...custom]; };
-    const toggleVeg = (cat,name) => setActiveVeg(prev=>({...prev,[cat]:(() => {const s=new Set(prev[cat]);s.has(name)?s.delete(name):s.add(name);return s;})()}));
-    const selectAll = (cat,items) => setActiveVeg(prev=>({...prev,[cat]:new Set(items.map(v=>v.name))}));
-    const deselectAll = (cat) => setActiveVeg(prev=>({...prev,[cat]:new Set()}));
-
-    const addCustomDish = (cat) => { const raw=(newDishInputs[cat]||'').trim(); if(!raw) return; if(getAllDishes(cat).some(d=>d.name.toLowerCase()===raw.toLowerCase())){setNewDishInputs(p=>({...p,[cat]:''}));return;} setCustomDishes(prev=>({...prev,[cat]:[...(prev[cat]||[]),raw]})); setActiveVeg(prev=>({...prev,[cat]:(() => {const s=new Set(prev[cat]);s.add(raw);return s;})()})); setNewDishInputs(p=>({...p,[cat]:''})); };
-    const removeCustomDish = (cat,name) => { setCustomDishes(prev=>({...prev,[cat]:(prev[cat]||[]).filter(n=>n!==name)})); setActiveVeg(prev=>({...prev,[cat]:(() => {const s=new Set(prev[cat]);s.delete(name);return s;})()})); };
-
-    const saveRule = (rule) => {
-        if (editingRule) setRules(prev=>prev.map(r=>r.id===rule.id?rule:r));
-        else setRules(prev=>[...prev,rule]);
-        setShowRuleForm(false); setEditingRule(null);
-    };
-    const deleteRule = (id) => setRules(prev=>prev.filter(r=>r.id!==id));
-    const startEdit  = (rule) => { setEditingRule(rule); setShowRuleForm(true); };
-
-    const generateMenu = () => {
-        setError(null);
-        try {
-            const logicPlan = buildPlan(startDate,cycle,rules);
-            const start = new Date(startDate);
-            const pool = (cat) => { const sel=activeVeg[cat]||new Set(); const list=getAllDishes(cat).filter(v=>sel.has(v.name)); return list.length?list:getAllDishes(cat); };
-            const nb=makeRotator(pool('breakfast')); const nd=makeRotator(pool('dry_veggies')); const ng=makeRotator(pool('gravy_veggies'));
-            const nsnack=makeRotator(pool('snacks')); const ns=makeRotator(pool('special_meals')); const nc=makeRotator(pool('curd'));
-            // dal rotators per dal rule
-            const dalRotators = {};
-
-            const days = logicPlan.map((plan,i)=>{
-                const d=new Date(start); d.setDate(start.getDate()+i);
-                // Dal
-                let lunchDal;
-                if (!plan.hasDal) { lunchDal=null; }
-                else if (plan.dalRule) {
-                    const key=plan.dalRule.dals.join('|');
-                    if (!dalRotators[key]) dalRotators[key]=makeRotator(plan.dalRule.dals.map(n=>getAllDishes('dals').find(x=>x.name===n)||{name:n,hi:''}));
-                    lunchDal=dalRotators[key]();
-                } else {
-                    if (!dalRotators['default']) dalRotators['default']=makeRotator(pool('dals'));
-                    lunchDal=dalRotators['default']();
-                }
-                return {
-                    id:i, date:d.toLocaleDateString('en-IN',{day:'numeric',month:'short'}),
-                    dayName:plan.day, isNoDinnerDay:plan.noDinner, isSpecialLunchDay:plan.isSpecial,
-                    lunchSide:plan.side, dinnerSide:plan.dinnerSide, dinnerSideHi:plan.dinnerSideHi,
-                    breakfast:nb(), extraBreakfast:plan.extraBreakfast,
-                    lunch:plan.isSpecial?{isSpecial:true,main:ns()}:{isSpecial:false,veg:nd(),dal:lunchDal},
-                    snack:plan.noDinner?ns():nsnack(),
-                    dinner:plan.noDinner?null:{main:ng()},
-                    curd:nc(),
-                };
-            });
-            const menuObj={id:Date.now(),timestamp:new Date().toLocaleString(),city,days};
-            setHistory(prev=>[menuObj,...prev].slice(0,10));
-            setActiveMenu(menuObj); setView('live');
-        } catch(err){ setError(err.message); }
-    };
-
-    const updateMeal = (dayId,path,item) => { const u=JSON.parse(JSON.stringify(activeMenu)); const day=u.days.find(d=>d.id===dayId); const keys=path.split('.'); if(keys.length===1)day[keys[0]]=item; else day[keys[0]][keys[1]]=item; setActiveMenu(u); setEditingMeal(null); };
-
-    if(isSyncing) return <div className="h-screen flex items-center justify-center font-black uppercase tracking-widest text-slate-300">Loading…</div>;
-
-    return (
-        <div className="min-h-screen flex flex-col lg:flex-row">
-            {/* Sidebar */}
-            <aside className="w-full lg:w-60 bg-white border-r border-slate-200 no-print flex-shrink-0">
-                <div className="p-5 border-b border-slate-100 flex items-center gap-3">
-                    <div className="bg-blue-600 p-2 rounded-xl text-white"><Icon name="ChefHat" size={16}/></div>
-                    <div><p className="font-black text-[10px] uppercase tracking-wider">History</p><p className="text-[9px] text-slate-400">{history.length} cycles saved</p></div>
-                </div>
-                <div className="p-3 space-y-1.5 overflow-y-auto max-h-[30vh] lg:max-h-[calc(100vh-80px)]">
-                    {history.length===0&&<p className="text-[10px] text-slate-300 font-bold text-center py-8">No history yet</p>}
-                    {history.map(h=>(
-                        <button key={h.id} onClick={()=>{setActiveMenu(h);setView('live');}}
-                            className={`w-full text-left p-3 rounded-xl border transition-all ${activeMenu?.id===h.id?'bg-blue-50 border-blue-200':'bg-white hover:border-slate-200 border-transparent'}`}>
-                            <p className="text-[9px] font-black text-blue-600 uppercase">{h.city}</p>
-                            <p className="text-[10px] font-bold text-slate-600 mt-0.5">{h.timestamp.split(',')[0]}</p>
-                        </button>
-                    ))}
-                </div>
-            </aside>
-
-            <main className="flex-1 p-4 lg:p-10 w-full overflow-x-hidden">
-                <div className="max-w-5xl mx-auto">
-
-                {view==='plan'&&(
-                <div className="space-y-8 fadein">
-                    <header className="text-center pt-4">
-                        <h1 className="text-4xl lg:text-5xl font-black text-slate-900 tracking-tighter">The360 Kitchen</h1>
-                        <div className="flex items-center justify-center gap-2 mt-2">
-                            <Icon name={SEASON_ICON[season]} size={13} cls="text-blue-400"/>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{SEASON_LABEL[season]} · No API Required</p>
-                        </div>
-                    </header>
-
-                    {error&&<div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl text-xs font-bold flex items-center gap-2"><Icon name="AlertTriangle" size={15}/>{error}</div>}
-
-                    {/* Config */}
-                    <div className="grid sm:grid-cols-3 gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                        <div className="space-y-1.5 relative">
-                            <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">City</label>
-                            <input value={cityInput} onChange={e=>{setCityInput(e.target.value);setShowCityDD(true);}} onBlur={()=>setTimeout(()=>setShowCityDD(false),150)} onFocus={()=>setShowCityDD(true)}
-                                className="w-full bg-slate-50 p-3.5 rounded-2xl font-bold text-sm outline-none border-2 border-transparent focus:border-blue-400 transition-all"/>
-                            {showCityDD&&citySuggs.length>0&&(
-                                <div className="absolute top-full left-0 right-0 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl mt-1 overflow-hidden">
-                                    {citySuggs.slice(0,5).map(c=><button key={c} onMouseDown={()=>handleCityChange(c)} className="w-full text-left px-4 py-2.5 text-sm font-bold hover:bg-blue-50 border-b border-slate-50 last:border-0">{c}</button>)}
-                                </div>
-                            )}
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Start Date</label>
-                            <input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} className="w-full bg-slate-50 p-3.5 rounded-2xl font-bold text-sm outline-none border-2 border-transparent focus:border-blue-400 transition-all"/>
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Cycle (Days)</label>
-                            <div className="flex bg-slate-50 p-1 rounded-2xl">
-                                {[3,7,14].map(n=><button key={n} onClick={()=>setCycle(n)} className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all ${cycle===n?'bg-white shadow text-blue-600':'text-slate-400 hover:text-slate-600'}`}>{n}</button>)}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Tabs */}
-                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                        <div className="flex border-b border-slate-100">
-                            {[{id:'rules',label:'House Rules',icon:'Settings2'},{id:'veggies',label:'Dish Selector',icon:'Salad'}].map(t=>(
-                                <button key={t.id} onClick={()=>setPlanTab(t.id)}
-                                    className={`flex-1 flex items-center justify-center gap-2 py-4 text-[10px] font-black uppercase tracking-widest transition-all ${planTab===t.id?'tab-on':'text-slate-400 hover:text-slate-600'}`}>
-                                    <Icon name={t.icon} size={13}/>{t.label}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* ── RULES TAB ── */}
-                        {planTab==='rules'&&(
-                        <div className="p-6 space-y-4">
-                            {!showRuleForm&&(
-                            <>
-                                <div className="flex items-center justify-between">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{rules.length} rule{rules.length!==1?'s':''} active</p>
-                                    <p className="text-[9px] text-slate-400">Click any rule to edit or delete it</p>
-                                </div>
-
-                                {rules.length===0&&(
-                                    <div className="text-center py-10 text-slate-300">
-                                        <Icon name="ClipboardList" size={32} cls="mx-auto mb-3 opacity-30"/>
-                                        <p className="font-bold text-sm">No rules yet</p>
-                                        <p className="text-xs mt-1">Add your first house rule below</p>
-                                    </div>
-                                )}
-
-                                <div className="space-y-2">
-                                    {rules.map(rule=>{
-                                        const rt=RULE_TYPES.find(r=>r.id===rule.type);
-                                        return (
-                                            <div key={rule.id} className={`flex items-center gap-3 p-4 rounded-2xl border-2 ${rt?.color||'bg-slate-50 border-slate-200'}`}>
-                                                <div className="flex-shrink-0"><Icon name={rt?.icon||'Settings'} size={16}/></div>
-                                                <p className="flex-1 font-bold text-sm leading-snug">{humanise(rule)}</p>
-                                                <div className="flex gap-1.5 flex-shrink-0">
-                                                    <button onClick={()=>startEdit(rule)} className="p-1.5 rounded-lg bg-white/60 hover:bg-white transition-all" title="Edit"><Icon name="Pencil" size={13}/></button>
-                                                    <button onClick={()=>deleteRule(rule.id)} className="p-1.5 rounded-lg bg-white/60 hover:bg-red-100 hover:text-red-500 transition-all" title="Delete"><Icon name="Trash2" size={13}/></button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-
-                                <button onClick={()=>{setEditingRule(null);setShowRuleForm(true);}}
-                                    className="w-full py-4 border-2 border-dashed border-blue-200 rounded-2xl text-[11px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 hover:border-blue-400 transition-all flex items-center justify-center gap-2">
-                                    <Icon name="Plus" size={15}/>Add House Rule
-                                </button>
-                            </>
-                            )}
-
-                            {showRuleForm&&(
-                                <RuleForm
-                                    editingRule={editingRule}
-                                    onSave={saveRule}
-                                    onCancel={()=>{setShowRuleForm(false);setEditingRule(null);}}
-                                />
-                            )}
-                        </div>
-                        )}
-
-                        {/* ── DISH SELECTOR TAB ── */}
-                        {planTab==='veggies'&&(
-                        <div className="p-6 space-y-7">
-                            <div className="flex items-center justify-between flex-wrap gap-3">
-                                <div>
-                                    <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Showing dishes for <span className="text-blue-600">{city}</span> in <span className="text-blue-600">{SEASON_LABEL[season]}</span></p>
-                                    <p className="text-[9px] text-slate-400 mt-0.5">Blue = selected · Faded = off-season · Add custom dishes below each section</p>
-                                </div>
-                                <button onClick={()=>handleCityChange(cityInput)} className="px-4 py-2 bg-blue-50 border border-blue-100 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-wide flex items-center gap-1.5 hover:bg-blue-100 transition-all">
-                                    <Icon name="RefreshCw" size={11}/>Refresh for {cityInput}
-                                </button>
-                            </div>
-                            {Object.keys(VEG_MASTER).map(cat=>{
-                                const cl=CAT_LABEL[cat];
-                                const filtered=filterByCitySeason(VEG_MASTER[cat],city,season);
-                                const allDishes=getAllDishes(cat);
-                                const sel=activeVeg[cat]||new Set();
-                                const selCount=allDishes.filter(v=>sel.has(v.name)).length;
-                                return (
-                                    <div key={cat} className="space-y-3">
-                                        <div className="flex items-center justify-between flex-wrap gap-2">
-                                            <div className="flex items-center gap-2">
-                                                <Icon name={cl.icon} size={13} cls="text-slate-400"/>
-                                                <p className="text-[10px] font-black uppercase text-slate-700 tracking-widest">{cl.en}</p>
-                                                <span className="text-slate-400 text-[10px] font-semibold">{cl.hi}</span>
-                                                <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-full">{selCount}/{allDishes.length}</span>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <button onClick={()=>selectAll(cat,filtered)} className="text-[9px] font-black uppercase text-green-600 hover:underline px-2 py-1 rounded-lg hover:bg-green-50">All</button>
-                                                <button onClick={()=>deselectAll(cat)} className="text-[9px] font-black uppercase text-red-400 hover:underline px-2 py-1 rounded-lg hover:bg-red-50">None</button>
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {allDishes.map(v=>{
-                                                const inSeason=filtered.some(f=>f.name===v.name)||v.custom;
-                                                const isOn=sel.has(v.name);
-                                                return (
-                                                    <div key={v.name} className="relative group/chip">
-                                                        <button onClick={()=>inSeason&&toggleVeg(cat,v.name)}
-                                                            className={`px-3 py-2 rounded-2xl text-[10px] font-bold border-2 transition-all flex flex-col items-start ${!inSeason?'opacity-25 cursor-not-allowed bg-slate-50 border-slate-100 text-slate-400':isOn?'bg-blue-600 border-blue-600 text-white shadow-md':'bg-white border-slate-200 text-slate-600 hover:border-blue-300 hover:bg-blue-50'}`}>
-                                                            <span>{v.name}{v.custom&&<span className="ml-1 text-[8px] opacity-60">✎</span>}</span>
-                                                            {v.hi&&<span className={`text-[9px] ${isOn?'text-blue-200':'text-slate-400'}`}>{v.hi}</span>}
-                                                        </button>
-                                                        {v.custom&&<button onClick={()=>removeCustomDish(cat,v.name)} className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] font-black hidden group-hover/chip:flex items-center justify-center">×</button>}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                        <div className="flex gap-2 mt-1">
-                                            <input value={newDishInputs[cat]||''} onChange={e=>setNewDishInputs(p=>({...p,[cat]:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&addCustomDish(cat)}
-                                                placeholder={`+ Add a custom ${cl.en.toLowerCase()} dish…`}
-                                                className="flex-1 bg-slate-50 px-3.5 py-2.5 rounded-xl text-[11px] font-bold border-2 border-dashed border-slate-200 focus:border-blue-300 focus:bg-white outline-none transition-all placeholder-slate-300"/>
-                                            <button onClick={()=>addCustomDish(cat)} className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase hover:bg-blue-600 transition-all">Add</button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        )}
-                    </div>
-
-                    <button onClick={generateMenu} className="w-full py-7 rounded-[3rem] font-black uppercase tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 text-sm bg-blue-600 text-white hover:bg-blue-700 hover:scale-[1.01] active:scale-95 transition-all glow">
-                        <Icon name="Sparkles" size={20}/> Generate Master Menu
-                    </button>
-                </div>
-                )}
-
-                {/* ════ LIVE MENU ════ */}
-                {view==='live'&&activeMenu&&(
-                <div className="space-y-10 fadein">
-                    <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print pt-2">
-                        <div>
-                            <h2 className="text-4xl font-black tracking-tighter uppercase">{activeMenu.city} Cycle</h2>
-                            <p className="text-[10px] font-black text-slate-400 uppercase mt-2 tracking-widest flex items-center gap-2"><Icon name="ShieldCheck" size={12} cls="text-green-500"/>{rules.length} rules applied · {activeMenu.days.length} days</p>
-                        </div>
-                        <div className="flex gap-2">
-                            <button onClick={()=>window.print()} className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-3 rounded-2xl text-xs font-black hover:bg-slate-50 shadow-sm"><Icon name="Printer" size={15}/>Print</button>
-                            <button onClick={()=>setView('plan')} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black active:scale-95 transition-all"><Icon name="ArrowLeft" size={15}/>Adjust Plan</button>
-                        </div>
-                    </header>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {activeMenu.days.map(day=>(
-                            <div key={day.id} className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden flex flex-col">
-                                <div className={`px-8 py-6 flex justify-between items-center ${day.isNoDinnerDay?'bg-orange-500':day.isSpecialLunchDay?'bg-purple-600':'bg-slate-900'} text-white`}>
-                                    <div>
-                                        <p className="font-black uppercase tracking-tight text-xl">{day.dayName}</p>
-                                        <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mt-0.5">{day.date}</p>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-0.5">
-                                        <Icon name={day.isNoDinnerDay?'Zap':day.isSpecialLunchDay?'Sparkles':'ChefHat'} size={24}/>
-                                        {day.isNoDinnerDay&&<span className="text-[8px] font-black uppercase opacity-70">No Dinner</span>}
-                                        {day.isSpecialLunchDay&&<span className="text-[8px] font-black uppercase opacity-70">Special</span>}
-                                    </div>
-                                </div>
-                                <div className="p-8 space-y-6 flex-1">
-                                    <div className="space-y-3">
-                                        <MealItem icon="Sun" label="Breakfast · नाश्ता" item={day.breakfast} yt={getYT(day.breakfast?.name)} onEdit={()=>setEditingMeal({dayId:day.id,path:'breakfast',pool:'breakfast'})}/>
-                                        {day.extraBreakfast?.length>0&&day.extraBreakfast.map((e,i)=>(
-                                            <div key={i} className="flex items-center gap-2 pl-5">
-                                                <div className="text-pink-400"><Icon name="Plus" size={12}/></div>
-                                                <span className="text-xs font-bold text-pink-600">{e}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="h-px bg-slate-100"/>
-                                    <div className={`space-y-4 ${day.isSpecialLunchDay?'bg-purple-50 p-5 rounded-3xl border border-purple-100':''}`}>
-                                        <h3 className={`text-[9px] font-black uppercase tracking-widest ${day.isSpecialLunchDay?'text-purple-600':'text-slate-400'}`}>Lunch · दोपहर का खाना</h3>
-                                        <div className="space-y-4 pl-1">
-                                            {day.lunch.isSpecial?(
-                                                <MealItem icon="ChefHat" label="Specialty" item={day.lunch.main} yt={getYT(day.lunch.main?.name)} onEdit={()=>setEditingMeal({dayId:day.id,path:'lunch.main',pool:'special_meals'})}/>
-                                            ):(
-                                                <React.Fragment>
-                                                    <MealItem icon="Leaf" label="Veg Dish" item={day.lunch.veg} yt={getYT(day.lunch.veg?.name)} onEdit={()=>setEditingMeal({dayId:day.id,path:'lunch.veg',pool:'dry_veggies'})}/>
-                                                    {day.lunch.dal&&<MealItem icon="Waves" label="Dal" item={day.lunch.dal} yt={getYT(day.lunch.dal?.name)} sub={`Curd: ${day.curd?.name} · ${day.curd?.hi||''}`} onEdit={()=>setEditingMeal({dayId:day.id,path:'lunch.dal',pool:'dals'})}/>}
-                                                </React.Fragment>
-                                            )}
-                                        </div>
-                                        <SideItem side={day.lunchSide}/>
-                                    </div>
-                                    <div className="h-px bg-slate-100"/>
-                                    <MealItem icon={day.isNoDinnerDay?'Star':'Coffee'} label={day.isNoDinnerDay?'Final Meal · आखिरी खाना':'Snack · शाम का नाश्ता'} item={day.snack} yt={getYT(day.snack?.name)} onEdit={()=>setEditingMeal({dayId:day.id,path:'snack',pool:day.isNoDinnerDay?'special_meals':'snacks'})}/>
-                                    {day.dinner&&(
-                                        <React.Fragment>
-                                            <div className="h-px bg-slate-100"/>
-                                            <div className="space-y-4">
-                                                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Dinner · रात का खाना</h3>
-                                                <div className="pl-1">
-                                                    <MealItem icon="Moon" label="Main Gravy" item={day.dinner.main} yt={getYT(day.dinner.main?.name)} onEdit={()=>setEditingMeal({dayId:day.id,path:'dinner.main',pool:'gravy_veggies'})}/>
-                                                </div>
-                                                <SideItem side={day.dinnerSide} sideHi={day.dinnerSideHi}/>
-                                            </div>
-                                        </React.Fragment>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                )}
-                </div>
-            </main>
-
-            {/* Swap Modal */}
-            {editingMeal&&(
-                <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={()=>setEditingMeal(null)}>
-                    <div className="bg-white w-full max-w-md rounded-3xl p-8 max-h-[80vh] flex flex-col shadow-2xl fadein" onClick={e=>e.stopPropagation()}>
-                        <h3 className="text-lg font-black mb-1 uppercase tracking-tight flex items-center gap-2"><Icon name="RefreshCw" size={18}/>Swap Dish</h3>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-5">{CAT_LABEL[editingMeal.pool]?.en} · {CAT_LABEL[editingMeal.pool]?.hi}</p>
-                        <div className="flex-1 overflow-y-auto scrollbar space-y-1.5 pr-1">
-                            {getAllDishes(editingMeal.pool).map(item=>(
-                                <button key={item.name} onClick={()=>updateMeal(editingMeal.dayId,editingMeal.path,item)}
-                                    className="w-full text-left p-4 rounded-2xl bg-slate-50 hover:bg-blue-600 hover:text-white transition-all flex justify-between items-center group">
-                                    <div><p className="font-black text-sm">{item.name}</p>{item.hi&&<p className="text-[10px] font-bold opacity-50 mt-0.5">{item.hi}</p>}</div>
-                                    <Icon name="ChevronRight" size={15} cls="opacity-0 group-hover:opacity-100"/>
-                                </button>
-                            ))}
-                        </div>
-                        <button onClick={()=>setEditingMeal(null)} className="mt-5 py-4 bg-slate-100 text-slate-500 font-black rounded-2xl uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all">Close</button>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
-</script>
-</body>
-</html>
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/index.html b/index.html
+index 35c16376d7d94d15da81b6a76dc7971aef95f230..62a925a30cd3f5cb0ce92aff951449c89f65fefb 100644
+--- a/index.html
++++ b/index.html
+@@ -30,123 +30,128 @@
+ const { useState, useEffect, useRef } = React;
+ 
+ // ─── Seasons ───────────────────────────────────────────────────────────────
+ const getSeason = () => { const m=new Date().getMonth()+1; if(m>=12||m<=2)return'winter'; if(m>=3&&m<=5)return'summer'; if(m>=6&&m<=9)return'monsoon'; return'autumn'; };
+ const SEASON_LABEL = {winter:'सर्दी · Winter',summer:'गर्मी · Summer',monsoon:'बारिश · Monsoon',autumn:'शरद · Autumn'};
+ const SEASON_ICON  = {winter:'Snowflake',summer:'Sun',monsoon:'CloudRain',autumn:'Leaf'};
+ const FLOUR_BY_SEASON = {winter:[{en:'Bajra',hi:'बाजरा'},{en:'Makki',hi:'मक्की'},{en:'Jowar',hi:'ज्वार'}],summer:[{en:'Wheat',hi:'गेहूं'},{en:'Jowar',hi:'ज्वार'},{en:'Barley',hi:'जौ'}],monsoon:[{en:'Wheat',hi:'गेहूं'},{en:'Jowar',hi:'ज्वार'},{en:'Ragi',hi:'रागी'}],autumn:[{en:'Wheat',hi:'गेहूं'},{en:'Bajra',hi:'बाजरा'},{en:'Ragi',hi:'रागी'}]};
+ 
+ const DAY_NAMES  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+ const DAY_SHORT  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+ const WEEKDAYS   = [1,2,3,4,5];
+ const WEEKENDS   = [0,6];
+ const ALLDAYS    = [0,1,2,3,4,5,6];
+ 
+ // ─── Rule type definitions ─────────────────────────────────────────────────
+ // Each rule is a plain JS object — no text parsing needed at all.
+ const RULE_TYPES = [
+     { id:'no_dinner',      label:'Skip Dinner',          icon:'MoonStar',   color:'bg-orange-50 border-orange-200 text-orange-700',  desc:'Mark specific days as snack-only — no dinner cooked' },
+     { id:'special_lunch',  label:'Special Lunch Day',    icon:'Sparkles',   color:'bg-purple-50 border-purple-200 text-purple-700',  desc:'Use special/festive dishes for lunch on chosen days' },
+     { id:'lunch_side',     label:'Lunch Side Dish',      icon:'Wheat',      color:'bg-green-50 border-green-200 text-green-700',     desc:'Set which days get Rice vs Roti at lunch' },
+     { id:'dinner_side',    label:'Dinner Side Dish',     icon:'Moon',       color:'bg-blue-50 border-blue-200 text-blue-700',        desc:'Fixed Roti, Rice, or seasonal flour rotation for dinner' },
+     { id:'lunch_dal',      label:'Dal Preference',       icon:'Waves',      color:'bg-yellow-50 border-yellow-200 text-yellow-700',  desc:'Choose which dal(s) to use at lunch — picks alternately if two chosen' },
+     { id:'extra_breakfast',label:'Add Breakfast Item',   icon:'Plus',       color:'bg-pink-50 border-pink-200 text-pink-700',        desc:'Add a fixed extra item to breakfast on specific days (e.g. egg whites)' },
+     { id:'always_gravy',   label:'Always Gravy at Dinner',icon:'ChefHat',   color:'bg-slate-50 border-slate-200 text-slate-700',     desc:'Ensure every dinner has a gravy/curry dish' },
+     { id:'no_lunch_dal',   label:'Skip Dal at Lunch',    icon:'X',          color:'bg-red-50 border-red-200 text-red-600',           desc:'No dal served at lunch on selected days' },
++    { id:'heavy_snack_drink',label:'Heavy Snacks + Drinks', icon:'GlassWater', color:'bg-cyan-50 border-cyan-200 text-cyan-700',       desc:'Serve filling evening snacks paired with drinks on selected days' },
+ ];
+ 
+ // ─── Humanise a rule object → readable summary ────────────────────────────
+ const humanise = (rule) => {
+     const dayLabel = (days) => {
+         if (!days||days.length===7) return 'Every day';
+         if (days.length===5&&WEEKDAYS.every(d=>days.includes(d))) return 'Weekdays (Mon–Fri)';
+         if (days.length===2&&WEEKENDS.every(d=>days.includes(d))) return 'Weekends';
+         return days.map(d=>DAY_SHORT[d]).join(', ');
+     };
+     switch(rule.type) {
+         case 'no_dinner':      return `🚫 No Dinner on ${dayLabel(rule.days)}`;
+         case 'special_lunch':  return `✨ Special Lunch on ${dayLabel(rule.days)}`;
+         case 'lunch_side':     return `🍚 Lunch side: ${rule.side==='seasonal'?'Seasonal rotation':rule.side} on ${dayLabel(rule.days)}`;
+         case 'dinner_side':    return rule.dinnerSideMode==='seasonal' ? `🌾 Dinner Roti: Seasonal flour rotation (Ayurvedic)` : `🫓 Dinner side: ${rule.dinnerSide||'Roti'} every night`;
+         case 'lunch_dal':      return rule.dals?.length===2 ? `🫘 Lunch Dal: Alternate ${rule.dals[0]} & ${rule.dals[1]} on ${dayLabel(rule.days)}` : `🫘 Lunch Dal: ${rule.dals?.[0]||'Any'} on ${dayLabel(rule.days)}`;
+         case 'extra_breakfast':return `🍳 Extra Breakfast item on ${dayLabel(rule.days)}: "${rule.extraItem}"`;
+         case 'always_gravy':   return `🍲 Always a Gravy dish at Dinner`;
+         case 'no_lunch_dal':   return `🚫 No Dal at Lunch on ${dayLabel(rule.days)}`;
++        case 'heavy_snack_drink': return `🥤 Heavy Snacks + Drinks on ${dayLabel(rule.days)}`;
+         default: return rule.type;
+     }
+ };
+ 
+ // ─── Apply rules → generate day plans ─────────────────────────────────────
+ const buildPlan = (startDate, cycle, rules) => {
+     const season = getSeason();
+     const flours = FLOUR_BY_SEASON[season];
+     // Pre-process
+     const noDinnerDays  = new Set();
+     const specialDays   = new Set();
+     const riceOnDays    = new Set();
+     let   alwaysGravy   = false;
+     let   flourRotation = false;
+     let   fixedDinnerSide = 'Roti';
+     const dalRules = []; // [{days, dals:[]}]
+     const noDalDays = new Set();
++    const heavySnackDrinkDays = new Set();
+     const extraBreakfast = []; // [{days, item}]
+ 
+     rules.forEach(r => {
+         if (r.type==='no_dinner')      r.days.forEach(d=>noDinnerDays.add(d));
+         if (r.type==='special_lunch')  r.days.forEach(d=>specialDays.add(d));
+         if (r.type==='lunch_side'&&r.side==='Rice') r.days.forEach(d=>riceOnDays.add(d));
+         if (r.type==='always_gravy')   alwaysGravy=true;
+         if (r.type==='dinner_side') {
+             if (r.dinnerSideMode==='seasonal') flourRotation=true;
+             else fixedDinnerSide=r.dinnerSide||'Roti';
+         }
+         if (r.type==='lunch_dal')      dalRules.push({days:r.days||ALLDAYS, dals:r.dals||[]});
+         if (r.type==='no_lunch_dal')   r.days.forEach(d=>noDalDays.add(d));
++        if (r.type==='heavy_snack_drink') r.days.forEach(d=>heavySnackDrinkDays.add(d));
+         if (r.type==='extra_breakfast') extraBreakfast.push({days:r.days||ALLDAYS, item:r.extraItem||''});
+     });
+     // Default rice days if no explicit rule
+     if (riceOnDays.size===0) [1,3,5].forEach(d=>riceOnDays.add(d));
+ 
+     const start = new Date(startDate);
+     return Array.from({length:cycle},(_,i)=>{
+         const d = new Date(start); d.setDate(start.getDate()+i);
+         const di = d.getDay();
+         const isWeekend = di===0||di===6;
+         const dinnerSide = flourRotation ? flours[i%flours.length].en : fixedDinnerSide;
+         const dinnerSideHi = flourRotation ? flours[i%flours.length].hi+' रोटी' : null;
+         const dalRule = dalRules.find(dr=>dr.days.includes(di));
+         const extraBF = extraBreakfast.filter(e=>e.days.includes(di)).map(e=>e.item);
+         return {
+             day:DAY_NAMES[di], dayIdx:di,
+             noDinner:  noDinnerDays.has(di),
+             isSpecial: specialDays.has(di),
+             side: riceOnDays.has(di)||isWeekend ? 'Rice':'Roti',
+             alwaysGravy,
+             dinnerSide, dinnerSideHi,
+             hasDal: !noDalDays.has(di),
+             dalRule: dalRule||null,
+             extraBreakfast: extraBF,
++            heavySnackDrink: heavySnackDrinkDays.has(di),
+             flourIdx: i%flours.length,
+         };
+     });
+ };
+ 
+ // ─── Master dish library ───────────────────────────────────────────────────
+ const VEG_MASTER = {
+     breakfast:[
+         {name:'Kanda Poha',hi:'कांदा पोहा',seasons:['all'],cities:['Mumbai','Pune','Nashik','Indore']},
+         {name:'Aloo Paratha',hi:'आलू पराठा',seasons:['all'],cities:['all']},
+         {name:'Idli Sambar',hi:'इडली सांभर',seasons:['all'],cities:['Chennai','Bangalore','Hyderabad','Mumbai']},
+         {name:'Sabudana Khichdi',hi:'साबूदाना खिचड़ी',seasons:['all'],cities:['Mumbai','Pune','Indore']},
+         {name:'Besan Chilla',hi:'बेसन चीला',seasons:['all'],cities:['all']},
+         {name:'Upma',hi:'उपमा',seasons:['all'],cities:['all']},
+         {name:'Methi Thepla',hi:'मेथी थेपला',seasons:['winter'],cities:['Ahmedabad','Surat','Mumbai','Pune']},
+         {name:'Dosa',hi:'डोसा',seasons:['all'],cities:['Chennai','Bangalore','Hyderabad','Mumbai']},
+         {name:'Moong Dal Chilla',hi:'मूंग दाल चीला',seasons:['all'],cities:['all']},
+         {name:'Uttapam',hi:'उत्तपम',seasons:['all'],cities:['all']},
+         {name:'Poha',hi:'पोहा',seasons:['all'],cities:['all']},
+         {name:'Vermicelli Upma',hi:'सेवई उपमा',seasons:['all'],cities:['all']},
+         {name:'Dhokla',hi:'ढोकला',seasons:['all'],cities:['Ahmedabad','Surat','Mumbai']},
+         {name:'Missi Roti',hi:'मिस्सी रोटी',seasons:['winter'],cities:['Delhi','Jaipur','Lucknow']},
+     ],
+     dry_veggies:[
+         {name:'Aloo Gobhi',hi:'आलू गोभी',seasons:['winter','autumn'],cities:['all']},
+@@ -260,87 +265,104 @@ const DayPicker = ({selected, onChange}) => {
+ // ─── Rule Form ─────────────────────────────────────────────────────────────
+ const RuleForm = ({onSave, onCancel, editingRule}) => {
+     const [step, setStep] = useState(editingRule?'form':'pick');
+     const [type, setType] = useState(editingRule?.type||null);
+     const [days, setDays] = useState(editingRule?.days||[1,2,3,4,5]);
+     const [side, setSide] = useState(editingRule?.side||'Rice');
+     const [dinnerSideMode, setDinnerSideMode] = useState(editingRule?.dinnerSideMode||'seasonal');
+     const [dinnerSide, setDinnerSide] = useState(editingRule?.dinnerSide||'Roti');
+     const [dals, setDals]   = useState(editingRule?.dals||['Arhar Dal']);
+     const [dal1, setDal1]   = useState(editingRule?.dals?.[0]||'Arhar Dal');
+     const [dal2, setDal2]   = useState(editingRule?.dals?.[1]||'');
+     const [extraItem, setExtraItem] = useState(editingRule?.extraItem||'');
+ 
+     const pickType = (t) => { setType(t); setStep('form'); };
+ 
+     const save = () => {
+         const base = {id: editingRule?.id||uid(), type};
+         if (type==='no_dinner')       onSave({...base, days});
+         else if (type==='special_lunch')   onSave({...base, days});
+         else if (type==='lunch_side')      onSave({...base, days, side});
+         else if (type==='dinner_side')     onSave({...base, dinnerSideMode, dinnerSide});
+         else if (type==='lunch_dal')       onSave({...base, days, dals: dal2 ? [dal1,dal2]:[dal1]});
+         else if (type==='extra_breakfast') onSave({...base, days, extraItem});
+         else if (type==='always_gravy')    onSave({...base});
+         else if (type==='no_lunch_dal')    onSave({...base, days});
++        else if (type==='heavy_snack_drink')onSave({...base, days});
+     };
+ 
+     const rt = RULE_TYPES.find(r=>r.id===type);
+     const dalNames = VEG_MASTER.dals.map(d=>d.name);
++    const previewRule = () => {
++        const base = {type, days};
++        if (type==='lunch_side') return {...base, side};
++        if (type==='dinner_side') return {...base, dinnerSideMode, dinnerSide};
++        if (type==='lunch_dal') return {...base, dals: dal2 ? [dal1,dal2] : [dal1]};
++        if (type==='extra_breakfast') return {...base, extraItem: extraItem.trim() || 'Custom Item'};
++        return base;
++    };
++    const canSave = type!=='extra_breakfast' || !!extraItem.trim();
+ 
+     return (
+         <div className="fadein">
+         {step==='pick' && (
+             <div className="space-y-3">
+-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">What kind of rule do you want to add?</p>
++                <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
++                    <p className="text-[10px] font-black uppercase text-blue-500 tracking-widest">Step 1 of 2 · Pick a rule type</p>
++                    <p className="text-xs text-slate-500 mt-1">Choose what you want to control, then customise the details in the next step.</p>
++                </div>
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                     {RULE_TYPES.map(rt=>(
+                         <button key={rt.id} onClick={()=>pickType(rt.id)}
+                             className={`flex items-start gap-3 p-4 rounded-2xl border-2 text-left hover:scale-[1.01] transition-all ${rt.color}`}>
+                             <div className="mt-0.5"><Icon name={rt.icon} size={16}/></div>
+                             <div>
+                                 <p className="font-black text-sm">{rt.label}</p>
+                                 <p className="text-[10px] opacity-70 mt-0.5 leading-relaxed">{rt.desc}</p>
+                             </div>
+                         </button>
+                     ))}
+                 </div>
+                 <button onClick={onCancel} className="w-full py-3 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-red-400 transition-colors mt-2">Cancel</button>
+             </div>
+         )}
+ 
+         {step==='form' && rt && (
+             <div className="space-y-5">
+                 <div className="flex items-center gap-3">
+-                    <button onClick={()=>setStep('pick')} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors"><Icon name="ArrowLeft" size={14}/></button>
++                    {!editingRule && <button onClick={()=>setStep('pick')} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors"><Icon name="ArrowLeft" size={14}/></button>}
+                     <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl border-2 ${rt.color}`}>
+                         <Icon name={rt.icon} size={14}/><span className="font-black text-sm">{rt.label}</span>
+                     </div>
+                 </div>
++                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5">
++                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Step 2 of 2 · Configure</p>
++                    <p className="text-sm font-bold text-slate-700 mt-1">{rt.desc}</p>
++                </div>
+ 
+                 {/* Days picker — shown for most rules */}
+-                {['no_dinner','special_lunch','lunch_side','lunch_dal','extra_breakfast','no_lunch_dal'].includes(type) && (
++                {['no_dinner','special_lunch','lunch_side','lunch_dal','extra_breakfast','no_lunch_dal','heavy_snack_drink'].includes(type) && (
+                     <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Which days?</label>
+                         <DayPicker selected={days} onChange={setDays}/>
+                     </div>
+                 )}
+ 
+                 {/* Lunch side */}
+                 {type==='lunch_side' && (
+                     <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Side dish on these days</label>
+                         <div className="flex gap-2">
+                             {['Rice','Roti','Paratha'].map(s=>(
+                                 <button key={s} onClick={()=>setSide(s)}
+                                     className={`flex-1 py-3 rounded-2xl font-black text-sm border-2 transition-all ${side===s?'bg-green-600 text-white border-green-600':'bg-white text-slate-600 border-slate-200 hover:border-green-300'}`}>{s}</button>
+                             ))}
+                         </div>
+                     </div>
+                 )}
+ 
+                 {/* Dinner side */}
+                 {type==='dinner_side' && (
+                     <div className="space-y-4">
+                         <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Dinner side mode</label>
+                         <div className="grid grid-cols-1 gap-2">
+                             <button onClick={()=>setDinnerSideMode('seasonal')}
+@@ -370,54 +392,59 @@ const RuleForm = ({onSave, onCancel, editingRule}) => {
+                         <select value={dal1} onChange={e=>setDal1(e.target.value)}
+                             className="w-full bg-slate-50 p-3.5 rounded-2xl font-bold text-sm outline-none border-2 border-transparent focus:border-blue-400 transition-all">
+                             {dalNames.map(d=><option key={d}>{d}</option>)}
+                         </select>
+                         <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Alternate Dal <span className="text-slate-300 normal-case font-normal">(optional — will rotate daily)</span></label>
+                         <select value={dal2} onChange={e=>setDal2(e.target.value)}
+                             className="w-full bg-slate-50 p-3.5 rounded-2xl font-bold text-sm outline-none border-2 border-transparent focus:border-blue-400 transition-all">
+                             <option value="">None — use primary only</option>
+                             {dalNames.filter(d=>d!==dal1).map(d=><option key={d}>{d}</option>)}
+                         </select>
+                     </div>
+                 )}
+ 
+                 {/* Extra breakfast item */}
+                 {type==='extra_breakfast' && (
+                     <div className="space-y-2">
+                         <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Extra item to add</label>
+                         <input value={extraItem} onChange={e=>setExtraItem(e.target.value)}
+                             placeholder="e.g.  5 Egg White Omelette  /  Protein Shake  /  Banana"
+                             className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm outline-none border-2 border-transparent focus:border-blue-400 transition-all placeholder-slate-300"/>
+                     </div>
+                 )}
+ 
+                 {/* no_dinner, special_lunch, always_gravy, no_lunch_dal — just days, no extra fields */}
+ 
++                <div className="rounded-2xl border border-slate-200 bg-white p-4">
++                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Live Rule Preview</p>
++                    <p className="font-bold text-sm text-slate-700 leading-snug">{humanise(previewRule())}</p>
++                </div>
++
+                 <div className="flex gap-2 pt-2">
+                     <button onClick={onCancel} className="flex-1 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all">Cancel</button>
+                     <button onClick={save}
+-                        disabled={type==='extra_breakfast'&&!extraItem.trim()}
++                        disabled={!canSave}
+                         className="flex-1 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                         {editingRule?'Update Rule':'Add Rule'}
+                     </button>
+                 </div>
+             </div>
+         )}
+         </div>
+     );
+ };
+ 
+ // ─── MealItem ──────────────────────────────────────────────────────────────
+ const MealItem = ({icon,label,item,yt,sub,onEdit}) => {
+     if(!item) return null;
+     return (
+         <div className="flex items-start justify-between gap-2 group">
+             <div className="flex items-start gap-3 min-w-0">
+                 <div className="mt-0.5 text-slate-300"><Icon name={icon} size={14}/></div>
+                 <div className="min-w-0">
+                     <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-0.5">{label}</p>
+                     <p className="font-black text-slate-800 leading-tight">{item.name}</p>
+                     {item.hi&&<p className="text-[11px] text-slate-400 font-semibold mt-0.5">{item.hi}</p>}
+                     {sub&&<p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
+                 </div>
+             </div>
+             <div className="flex gap-1.5 flex-shrink-0 mt-0.5">
+@@ -486,73 +513,76 @@ const App = () => {
+ 
+     const getAllDishes = (cat) => { const custom=(customDishes[cat]||[]).map(n=>({name:n,hi:'',seasons:['all'],cities:['all'],custom:true})); return [...VEG_MASTER[cat],...custom]; };
+     const toggleVeg = (cat,name) => setActiveVeg(prev=>({...prev,[cat]:(() => {const s=new Set(prev[cat]);s.has(name)?s.delete(name):s.add(name);return s;})()}));
+     const selectAll = (cat,items) => setActiveVeg(prev=>({...prev,[cat]:new Set(items.map(v=>v.name))}));
+     const deselectAll = (cat) => setActiveVeg(prev=>({...prev,[cat]:new Set()}));
+ 
+     const addCustomDish = (cat) => { const raw=(newDishInputs[cat]||'').trim(); if(!raw) return; if(getAllDishes(cat).some(d=>d.name.toLowerCase()===raw.toLowerCase())){setNewDishInputs(p=>({...p,[cat]:''}));return;} setCustomDishes(prev=>({...prev,[cat]:[...(prev[cat]||[]),raw]})); setActiveVeg(prev=>({...prev,[cat]:(() => {const s=new Set(prev[cat]);s.add(raw);return s;})()})); setNewDishInputs(p=>({...p,[cat]:''})); };
+     const removeCustomDish = (cat,name) => { setCustomDishes(prev=>({...prev,[cat]:(prev[cat]||[]).filter(n=>n!==name)})); setActiveVeg(prev=>({...prev,[cat]:(() => {const s=new Set(prev[cat]);s.delete(name);return s;})()})); };
+ 
+     const saveRule = (rule) => {
+         if (editingRule) setRules(prev=>prev.map(r=>r.id===rule.id?rule:r));
+         else setRules(prev=>[...prev,rule]);
+         setShowRuleForm(false); setEditingRule(null);
+     };
+     const deleteRule = (id) => setRules(prev=>prev.filter(r=>r.id!==id));
+     const startEdit  = (rule) => { setEditingRule(rule); setShowRuleForm(true); };
+ 
+     const generateMenu = () => {
+         setError(null);
+         try {
+             const logicPlan = buildPlan(startDate,cycle,rules);
+             const start = new Date(startDate);
+             const pool = (cat) => { const sel=activeVeg[cat]||new Set(); const list=getAllDishes(cat).filter(v=>sel.has(v.name)); return list.length?list:getAllDishes(cat); };
+             const nb=makeRotator(pool('breakfast')); const nd=makeRotator(pool('dry_veggies')); const ng=makeRotator(pool('gravy_veggies'));
+             const nsnack=makeRotator(pool('snacks')); const ns=makeRotator(pool('special_meals')); const nc=makeRotator(pool('curd'));
++            const heavySnackPool = pool('snacks').filter(s=>/(pakoda|chaat|samosa|dhokla|papad)/i.test(s.name));
++            const nheavySnack = makeRotator(heavySnackPool.length ? heavySnackPool : pool('snacks'));
+             // dal rotators per dal rule
+             const dalRotators = {};
+ 
+             const days = logicPlan.map((plan,i)=>{
+                 const d=new Date(start); d.setDate(start.getDate()+i);
+                 // Dal
+                 let lunchDal;
+                 if (!plan.hasDal) { lunchDal=null; }
+                 else if (plan.dalRule) {
+                     const key=plan.dalRule.dals.join('|');
+                     if (!dalRotators[key]) dalRotators[key]=makeRotator(plan.dalRule.dals.map(n=>getAllDishes('dals').find(x=>x.name===n)||{name:n,hi:''}));
+                     lunchDal=dalRotators[key]();
+                 } else {
+                     if (!dalRotators['default']) dalRotators['default']=makeRotator(pool('dals'));
+                     lunchDal=dalRotators['default']();
+                 }
+                 return {
+                     id:i, date:d.toLocaleDateString('en-IN',{day:'numeric',month:'short'}),
+                     dayName:plan.day, isNoDinnerDay:plan.noDinner, isSpecialLunchDay:plan.isSpecial,
+                     lunchSide:plan.side, dinnerSide:plan.dinnerSide, dinnerSideHi:plan.dinnerSideHi,
+                     breakfast:nb(), extraBreakfast:plan.extraBreakfast,
+                     lunch:plan.isSpecial?{isSpecial:true,main:ns()}:{isSpecial:false,veg:nd(),dal:lunchDal},
+-                    snack:plan.noDinner?ns():nsnack(),
++                    snack:plan.noDinner?ns():(plan.heavySnackDrink?nheavySnack():nsnack()),
++                    snackDrinkNote: plan.heavySnackDrink ? 'Serve with tea / coffee / fresh lime soda' : '',
+                     dinner:plan.noDinner?null:{main:ng()},
+                     curd:nc(),
+                 };
+             });
+             const menuObj={id:Date.now(),timestamp:new Date().toLocaleString(),city,days};
+             setHistory(prev=>[menuObj,...prev].slice(0,10));
+             setActiveMenu(menuObj); setView('live');
+         } catch(err){ setError(err.message); }
+     };
+ 
+     const updateMeal = (dayId,path,item) => { const u=JSON.parse(JSON.stringify(activeMenu)); const day=u.days.find(d=>d.id===dayId); const keys=path.split('.'); if(keys.length===1)day[keys[0]]=item; else day[keys[0]][keys[1]]=item; setActiveMenu(u); setEditingMeal(null); };
+ 
+     if(isSyncing) return <div className="h-screen flex items-center justify-center font-black uppercase tracking-widest text-slate-300">Loading…</div>;
+ 
+     return (
+         <div className="min-h-screen flex flex-col lg:flex-row">
+             {/* Sidebar */}
+             <aside className="w-full lg:w-60 bg-white border-r border-slate-200 no-print flex-shrink-0">
+                 <div className="p-5 border-b border-slate-100 flex items-center gap-3">
+                     <div className="bg-blue-600 p-2 rounded-xl text-white"><Icon name="ChefHat" size={16}/></div>
+                     <div><p className="font-black text-[10px] uppercase tracking-wider">History</p><p className="text-[9px] text-slate-400">{history.length} cycles saved</p></div>
+                 </div>
+                 <div className="p-3 space-y-1.5 overflow-y-auto max-h-[30vh] lg:max-h-[calc(100vh-80px)]">
+                     {history.length===0&&<p className="text-[10px] text-slate-300 font-bold text-center py-8">No history yet</p>}
+                     {history.map(h=>(
+@@ -600,71 +630,71 @@ const App = () => {
+                             <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Cycle (Days)</label>
+                             <div className="flex bg-slate-50 p-1 rounded-2xl">
+                                 {[3,7,14].map(n=><button key={n} onClick={()=>setCycle(n)} className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all ${cycle===n?'bg-white shadow text-blue-600':'text-slate-400 hover:text-slate-600'}`}>{n}</button>)}
+                             </div>
+                         </div>
+                     </div>
+ 
+                     {/* Tabs */}
+                     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                         <div className="flex border-b border-slate-100">
+                             {[{id:'rules',label:'House Rules',icon:'Settings2'},{id:'veggies',label:'Dish Selector',icon:'Salad'}].map(t=>(
+                                 <button key={t.id} onClick={()=>setPlanTab(t.id)}
+                                     className={`flex-1 flex items-center justify-center gap-2 py-4 text-[10px] font-black uppercase tracking-widest transition-all ${planTab===t.id?'tab-on':'text-slate-400 hover:text-slate-600'}`}>
+                                     <Icon name={t.icon} size={13}/>{t.label}
+                                 </button>
+                             ))}
+                         </div>
+ 
+                         {/* ── RULES TAB ── */}
+                         {planTab==='rules'&&(
+                         <div className="p-6 space-y-4">
+                             {!showRuleForm&&(
+                             <>
+                                 <div className="flex items-center justify-between">
+                                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{rules.length} rule{rules.length!==1?'s':''} active</p>
+-                                    <p className="text-[9px] text-slate-400">Click any rule to edit or delete it</p>
++                                    <p className="text-[9px] text-slate-400">Use Edit to refine or Delete to remove</p>
+                                 </div>
+ 
+                                 {rules.length===0&&(
+                                     <div className="text-center py-10 text-slate-300">
+                                         <Icon name="ClipboardList" size={32} cls="mx-auto mb-3 opacity-30"/>
+                                         <p className="font-bold text-sm">No rules yet</p>
+                                         <p className="text-xs mt-1">Add your first house rule below</p>
+                                     </div>
+                                 )}
+ 
+                                 <div className="space-y-2">
+                                     {rules.map(rule=>{
+                                         const rt=RULE_TYPES.find(r=>r.id===rule.type);
+                                         return (
+-                                            <div key={rule.id} className={`flex items-center gap-3 p-4 rounded-2xl border-2 ${rt?.color||'bg-slate-50 border-slate-200'}`}>
++                                            <div key={rule.id} role="button" tabIndex={0} onClick={()=>startEdit(rule)} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();startEdit(rule);}}} className={`w-full flex items-center gap-3 p-4 rounded-2xl border-2 text-left transition-all hover:shadow-sm hover:-translate-y-0.5 cursor-pointer ${rt?.color||'bg-slate-50 border-slate-200'}`}>
+                                                 <div className="flex-shrink-0"><Icon name={rt?.icon||'Settings'} size={16}/></div>
+                                                 <p className="flex-1 font-bold text-sm leading-snug">{humanise(rule)}</p>
+                                                 <div className="flex gap-1.5 flex-shrink-0">
+-                                                    <button onClick={()=>startEdit(rule)} className="p-1.5 rounded-lg bg-white/60 hover:bg-white transition-all" title="Edit"><Icon name="Pencil" size={13}/></button>
+-                                                    <button onClick={()=>deleteRule(rule.id)} className="p-1.5 rounded-lg bg-white/60 hover:bg-red-100 hover:text-red-500 transition-all" title="Delete"><Icon name="Trash2" size={13}/></button>
++                                                    <span className="px-2 py-1 rounded-lg bg-white/70 text-[10px] font-black uppercase tracking-wider">Edit</span>
++                                                    <button onClick={(e)=>{e.stopPropagation(); deleteRule(rule.id);}} className="p-1.5 rounded-lg bg-white/60 hover:bg-red-100 hover:text-red-500 transition-all" title="Delete"><Icon name="Trash2" size={13}/></button>
+                                                 </div>
+                                             </div>
+                                         );
+                                     })}
+                                 </div>
+ 
+                                 <button onClick={()=>{setEditingRule(null);setShowRuleForm(true);}}
+                                     className="w-full py-4 border-2 border-dashed border-blue-200 rounded-2xl text-[11px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 hover:border-blue-400 transition-all flex items-center justify-center gap-2">
+                                     <Icon name="Plus" size={15}/>Add House Rule
+                                 </button>
+                             </>
+                             )}
+ 
+                             {showRuleForm&&(
+                                 <RuleForm
+                                     editingRule={editingRule}
+                                     onSave={saveRule}
+                                     onCancel={()=>{setShowRuleForm(false);setEditingRule(null);}}
+                                 />
+                             )}
+                         </div>
+                         )}
+ 
+                         {/* ── DISH SELECTOR TAB ── */}
+                         {planTab==='veggies'&&(
+@@ -765,51 +795,51 @@ const App = () => {
+                                     <div className="space-y-3">
+                                         <MealItem icon="Sun" label="Breakfast · नाश्ता" item={day.breakfast} yt={getYT(day.breakfast?.name)} onEdit={()=>setEditingMeal({dayId:day.id,path:'breakfast',pool:'breakfast'})}/>
+                                         {day.extraBreakfast?.length>0&&day.extraBreakfast.map((e,i)=>(
+                                             <div key={i} className="flex items-center gap-2 pl-5">
+                                                 <div className="text-pink-400"><Icon name="Plus" size={12}/></div>
+                                                 <span className="text-xs font-bold text-pink-600">{e}</span>
+                                             </div>
+                                         ))}
+                                     </div>
+                                     <div className="h-px bg-slate-100"/>
+                                     <div className={`space-y-4 ${day.isSpecialLunchDay?'bg-purple-50 p-5 rounded-3xl border border-purple-100':''}`}>
+                                         <h3 className={`text-[9px] font-black uppercase tracking-widest ${day.isSpecialLunchDay?'text-purple-600':'text-slate-400'}`}>Lunch · दोपहर का खाना</h3>
+                                         <div className="space-y-4 pl-1">
+                                             {day.lunch.isSpecial?(
+                                                 <MealItem icon="ChefHat" label="Specialty" item={day.lunch.main} yt={getYT(day.lunch.main?.name)} onEdit={()=>setEditingMeal({dayId:day.id,path:'lunch.main',pool:'special_meals'})}/>
+                                             ):(
+                                                 <React.Fragment>
+                                                     <MealItem icon="Leaf" label="Veg Dish" item={day.lunch.veg} yt={getYT(day.lunch.veg?.name)} onEdit={()=>setEditingMeal({dayId:day.id,path:'lunch.veg',pool:'dry_veggies'})}/>
+                                                     {day.lunch.dal&&<MealItem icon="Waves" label="Dal" item={day.lunch.dal} yt={getYT(day.lunch.dal?.name)} sub={`Curd: ${day.curd?.name} · ${day.curd?.hi||''}`} onEdit={()=>setEditingMeal({dayId:day.id,path:'lunch.dal',pool:'dals'})}/>}
+                                                 </React.Fragment>
+                                             )}
+                                         </div>
+                                         <SideItem side={day.lunchSide}/>
+                                     </div>
+                                     <div className="h-px bg-slate-100"/>
+-                                    <MealItem icon={day.isNoDinnerDay?'Star':'Coffee'} label={day.isNoDinnerDay?'Final Meal · आखिरी खाना':'Snack · शाम का नाश्ता'} item={day.snack} yt={getYT(day.snack?.name)} onEdit={()=>setEditingMeal({dayId:day.id,path:'snack',pool:day.isNoDinnerDay?'special_meals':'snacks'})}/>
++                                    <MealItem icon={day.isNoDinnerDay?'Star':'Coffee'} label={day.isNoDinnerDay?'Final Meal · आखिरी खाना':(day.snackDrinkNote?'Heavy Snack · शाम का भरपेट नाश्ता':'Snack · शाम का नाश्ता')} item={day.snack} sub={day.snackDrinkNote} yt={getYT(day.snack?.name)} onEdit={()=>setEditingMeal({dayId:day.id,path:'snack',pool:day.isNoDinnerDay?'special_meals':'snacks'})}/>
+                                     {day.dinner&&(
+                                         <React.Fragment>
+                                             <div className="h-px bg-slate-100"/>
+                                             <div className="space-y-4">
+                                                 <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Dinner · रात का खाना</h3>
+                                                 <div className="pl-1">
+                                                     <MealItem icon="Moon" label="Main Gravy" item={day.dinner.main} yt={getYT(day.dinner.main?.name)} onEdit={()=>setEditingMeal({dayId:day.id,path:'dinner.main',pool:'gravy_veggies'})}/>
+                                                 </div>
+                                                 <SideItem side={day.dinnerSide} sideHi={day.dinnerSideHi}/>
+                                             </div>
+                                         </React.Fragment>
+                                     )}
+                                 </div>
+                             </div>
+                         ))}
+                     </div>
+                 </div>
+                 )}
+                 </div>
+             </main>
+ 
+             {/* Swap Modal */}
+             {editingMeal&&(
+                 <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={()=>setEditingMeal(null)}>
+                     <div className="bg-white w-full max-w-md rounded-3xl p-8 max-h-[80vh] flex flex-col shadow-2xl fadein" onClick={e=>e.stopPropagation()}>
+ 
+EOF
+)
